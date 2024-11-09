@@ -14,8 +14,8 @@ tile_size = 70
 # calculate the size of the window
 screen_width = grid_width * tile_size
 screen_height = grid_height * tile_size + 150 # leave some space for the pieces
-window_width = screen_width + 100
-window_height = screen_height + 100
+window_width = screen_width + 100 # extra space
+window_height = screen_height + 100 # extra space
 
 # create a window with the correct size
 screen = pygame.display.set_mode((window_width, window_height))
