@@ -1,11 +1,6 @@
 import pygame
 import sys
 
-black_leader_1_x = 0
-black_leader_1_y = 0
-dragging = False
-offset_x = 0
-offset_y = 0
 
 pygame.init()
 
@@ -13,10 +8,10 @@ grid_width = 16
 grid_height = 11
 tile_size = 70
 
-screen_width = grid_width * tile_size
+screen_width = grid_width * tile_size 
 screen_height = grid_height * tile_size + 150
-window_width = screen_width + 100
-window_height = screen_height + 100
+window_width = screen_width + 700
+window_height = screen_height + 140
 
 screen = pygame.display.set_mode((window_width, window_height))
 pygame.display.set_caption("Tigris and Euphrates")
@@ -40,6 +35,12 @@ temple_with_treasure_tiles = [
     (1, 1), (5, 2), (5, 9), (1, 7), (10, 0), (10, 10), (15, 1), (5, 2), (13, 4), (14, 8), (8, 6),
 ]
 
+black_leader_1_x = 0
+black_leader_1_y = 0
+dragging = False
+offset_x = 0
+offset_y = 0
+
 leader_tokens = {
     "black": pygame.image.load("black_leader_1.png"),
     "blue": pygame.image.load("blue_leader_1.png"),
@@ -50,7 +51,7 @@ leader_tokens = {
 for color in leader_tokens:
     leader_tokens[color] = pygame.transform.scale(leader_tokens[color], (70, 70))
 
-player_space_width = 570
+player_space_width = 850
 player_space_height = 160
 player_space_x1 = (window_width - player_space_width * 2 - 50) // 2
 player_space_x2 = player_space_x1 + player_space_width + 50
