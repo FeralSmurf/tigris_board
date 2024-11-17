@@ -1,8 +1,8 @@
 import pygame
 import sys
 
-black_leader_x = 0
-black_leader_y = 0
+black_leader_1_x = 0
+black_leader_1_y = 0
 dragging = False
 offset_x = 0
 offset_y = 0
@@ -41,10 +41,10 @@ temple_with_treasure_tiles = [
 ]
 
 leader_tokens = {
-    "black": pygame.image.load("black_leader.png"),
-    "blue": pygame.image.load("blue_leader.png"),
-    "red": pygame.image.load("red_leader.png"),
-    "green": pygame.image.load("green_leader.png"),
+    "black": pygame.image.load("black_leader_1.png"),
+    "blue": pygame.image.load("blue_leader_1.png"),
+    "red": pygame.image.load("red_leader_1.png"),
+    "green": pygame.image.load("green_leader_1.png"),
 }
 
 for color in leader_tokens:
