@@ -1,7 +1,6 @@
 import pygame
 import sys
 
-
 pygame.init()
 
 grid_width = 16
@@ -35,12 +34,6 @@ temple_with_treasure_tiles = [
     (1, 1), (5, 2), (5, 9), (1, 7), (10, 0), (10, 10), (15, 1), (5, 2), (13, 4), (14, 8), (8, 6),
 ]
 
-black_leader_1_x = 0
-black_leader_1_y = 0
-dragging = False
-offset_x = 0
-offset_y = 0
-
 leader_tokens = {
     "black": pygame.image.load("black_leader_1.png"),
     "blue": pygame.image.load("blue_leader_1.png"),
@@ -50,6 +43,16 @@ leader_tokens = {
 
 for color in leader_tokens:
     leader_tokens[color] = pygame.transform.scale(leader_tokens[color], (70, 70))
+
+other_tokens = {
+    "market": pygame.image.load("market.png"),
+    "city": pygame.image.load("city.png"),
+    "farm": pygame.image.load("farm.png"),
+    "temple": pygame.image.load("temple.png"),
+}
+
+for token in other_tokens:
+    other_tokens[token] = pygame.transform.scale(other_tokens[token], (70, 70))
 
 player_space_width = 850
 player_space_height = 160
@@ -64,7 +67,15 @@ leader_positions = {
     "green": [player_space_x1 + 250, player_space_y + 10],
 }
 
+token_positions = {
+    "market": [player_space_x1 + 330, player_space_y + 10],
+    "city": [player_space_x1 + 410, player_space_y + 10],
+    "farm": [player_space_x1 + 490, player_space_y + 10],
+    "temple": [player_space_x1 + 570, player_space_y + 10],
+}
+
 leader_dragging = {color: False for color in leader_tokens}
+token_dragging = {token: False for token in other_tokens}
 
 def snap_to_grid(pos):
     x = (pos[0] - (window_width - screen_width) // 2) // tile_size
@@ -88,12 +99,23 @@ while True:
                     ):
                         leader_dragging[color] = True
                         mouse_x, mouse_y = event.pos
+                for token, pos in token_positions.items():
+                    if (
+                        pos[0] <= event.pos[0] <= pos[0] + other_tokens[token].get_width()
+                        and pos[1] <= event.pos[1] <= pos[1] + other_tokens[token].get_height()
+                    ):
+                        token_dragging[token] = True
+                        mouse_x, mouse_y = event.pos
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 for color in leader_dragging:
                     if leader_dragging[color]:
                         leader_positions[color] = snap_to_grid(leader_positions[color])
                     leader_dragging[color] = False
+                for token in token_dragging:
+                    if token_dragging[token]:
+                        token_positions[token] = snap_to_grid(token_positions[token])
+                    token_dragging[token] = False
         elif event.type == pygame.MOUSEMOTION:
             for color, dragging in leader_dragging.items():
                 if dragging:
@@ -101,6 +123,13 @@ while True:
                     leader_positions[color] = [
                         mouse_x - leader_tokens[color].get_width() // 2,
                         mouse_y - leader_tokens[color].get_height() // 2,
+                    ]
+            for token, dragging in token_dragging.items():
+                if dragging:
+                    mouse_x, mouse_y = event.pos
+                    token_positions[token] = [
+                        mouse_x - other_tokens[token].get_width() // 2,
+                        mouse_y - other_tokens[token].get_height() // 2,
                     ]
 
     screen.fill(desert)
@@ -164,6 +193,9 @@ while True:
 
     for color, pos in leader_positions.items():
         screen.blit(leader_tokens[color], pos)
+
+    for token, pos in token_positions.items():
+        screen.blit(other_tokens[token], pos)
 
     pygame.display.flip()
 
