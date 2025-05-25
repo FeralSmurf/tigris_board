@@ -1,15 +1,4 @@
-[tool.poetry]
-name = "tigris&euphrates"
+[project]
+name = "tigris_board"
 version = "0.1.0"
-description = "digital boardgame"
-authors = ["FeralSmurf <bogdanvarzaru@gmail.com>"]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-poetry = "1.8.3"
-pygame = "^2.6.1"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+dependencies = ["pygame>=2.5.2"]
