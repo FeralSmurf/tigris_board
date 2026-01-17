@@ -74,11 +74,18 @@ class Player:
         self.score = {"red": 0, "blue": 0, "green": 0, "black": 0}
         self.hand = []
         self.leaders = {
-            "black": Tile("black_leader", leader_tokens["black"]),
-            "blue": Tile("blue_leader", leader_tokens["blue"]),
-            "red": Tile("red_leader", leader_tokens["red"]),
-            "green": Tile("green_leader", leader_tokens["green"]),
+            "black": Tile("black_leader", leader_tokens["black"].copy()),
+            "blue": Tile("blue_leader", leader_tokens["blue"].copy()),
+            "red": Tile("red_leader", leader_tokens["red"].copy()),
+            "green": Tile("green_leader", leader_tokens["green"].copy()),
         }
+
+        if self.name == "Player 2":
+            for leader in self.leaders.values():
+                darken_surface = pygame.Surface(leader.image.get_size(), flags=pygame.SRCALPHA)
+                darken_surface.fill((0, 0, 0, 50))  # Black with 50 alpha
+                leader.image.blit(darken_surface, (0, 0))
+
         self.player_space_x = player_space_x
         self.place_leaders()
 
@@ -507,6 +514,8 @@ while True:
                                 discard_pile.append(tile)
                         current_player.refill_hand(tile_bag)
                         tiles_marked_for_discard.clear()
+                        if actions_taken >= 2:
+                            end_turn()
                     elif actions_taken >= 2:
                         warning_message = "No more actions this turn!"
                         warning_message_timer = 120
@@ -555,8 +564,10 @@ while True:
                         warning_message_timer = 120
                     dragging_leader = None
                     original_drag_pos = None
+                    if actions_taken >= 2:
+                        end_turn()
                 
-                if dragging_tile:
+                elif dragging_tile:
                     current_player = players[current_player_index]
                     current_discard_area = player1_discard_area if current_player == player1 else player2_discard_area
                     if current_discard_area.collidepoint(dragging_tile.rect.center):
@@ -578,6 +589,8 @@ while True:
                             warning_message_timer = 120
                     dragging_tile = None
                     original_drag_pos = None
+                    if actions_taken >= 2:
+                        end_turn()
 
         elif event.type == pygame.MOUSEMOTION:
             if dragging_leader:
