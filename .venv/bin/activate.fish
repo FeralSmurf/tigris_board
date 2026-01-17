@@ -39,7 +39,7 @@ function deactivate -d 'Exit virtualenv mode and return to the normal environmen
     # reset old environment variables
     if test -n "$_OLD_VIRTUAL_PATH"
         # https://github.com/fish-shell/fish-shell/issues/436 altered PATH handling
-        if test (echo $FISH_VERSION | head -c 1) -lt 3
+        if test (string sub -s 1 -l 1 $FISH_VERSION) -lt 3
             set -gx PATH (_fishify_path "$_OLD_VIRTUAL_PATH")
         else
             set -gx PATH $_OLD_VIRTUAL_PATH
@@ -82,7 +82,7 @@ deactivate nondestructive
 set -gx VIRTUAL_ENV '/home/feralsmurf/Desktop/tigris_board/.venv'
 
 # https://github.com/fish-shell/fish-shell/issues/436 altered PATH handling
-if test (echo $FISH_VERSION | head -c 1) -lt 3
+if test (string sub -s 1 -l 1 $FISH_VERSION) -lt 3
     set -gx _OLD_VIRTUAL_PATH (_bashify_path $PATH)
 else
     set -gx _OLD_VIRTUAL_PATH $PATH
@@ -91,8 +91,8 @@ set -gx PATH "$VIRTUAL_ENV"'/bin' $PATH
 
 # Prompt override provided?
 # If not, just use the environment name.
-if test -n 'tigris-board'
-    set -gx VIRTUAL_ENV_PROMPT 'tigris-board'
+if test -n 'tigris_board'
+    set -gx VIRTUAL_ENV_PROMPT 'tigris_board'
 else
     set -gx VIRTUAL_ENV_PROMPT (basename "$VIRTUAL_ENV")
 end

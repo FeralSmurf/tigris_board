@@ -1,6 +1,7 @@
 import pygame
 import sys
 import copy
+import random
 
 pygame.init()
 
@@ -8,7 +9,7 @@ grid_width = 16
 grid_height = 11
 tile_size = 70
 
-screen_width = grid_width * tile_size 
+screen_width = grid_width * tile_size
 screen_height = grid_height * tile_size + 150
 window_width = screen_width + 700
 window_height = screen_height + 140
@@ -19,6 +20,7 @@ pygame.display.set_caption("Tigris and Euphrates")
 desert = (233, 200, 144)
 black = (0, 0, 0)
 river = (138, 202, 238)
+red = (255, 0, 0)
 undo_button_color = (200, 200, 200)
 undo_button_hover_color = (180, 180, 180)
 
@@ -30,7 +32,7 @@ river_tiles = [
     (2, 6), (1, 6), (0, 6),
 ]
 
-temple_with_treasure = pygame.image.load("temple_with_treasure.png")
+temple_with_treasure = pygame.image.load("temple_with_treasure.bmp")
 temple_with_treasure = pygame.transform.scale(temple_with_treasure, (tile_size, tile_size))
 
 temple_with_treasure_tiles = [
@@ -38,160 +40,477 @@ temple_with_treasure_tiles = [
 ]
 
 leader_tokens = {
-    "black": pygame.image.load("black_leader_1.png"),
-    "blue": pygame.image.load("blue_leader_1.png"),
-    "red": pygame.image.load("red_leader_1.png"),
-    "green": pygame.image.load("green_leader_1.png"),
-
-    "black_2": pygame.image.load("black_leader_2.png"),
-    "blue_2": pygame.image.load("blue_leader_2.png"),
-    "red_2": pygame.image.load("red_leader_2.png"),
-    "green_2": pygame.image.load("green_leader_2.png"),
+    "black": pygame.image.load("black_leader_1.bmp"),
+    "blue": pygame.image.load("blue_leader_1.bmp"),
+    "red": pygame.image.load("red_leader_1.bmp"),
+    "green": pygame.image.load("green_leader_1.bmp"),
 }
 
 for color in leader_tokens:
     leader_tokens[color] = pygame.transform.scale(leader_tokens[color], (70, 70))
 
 other_tokens = {
-    "market": pygame.image.load("market.png"),
-    "city": pygame.image.load("city.png"),
-    "farm": pygame.image.load("farm.png"),
-    "temple": pygame.image.load("temple.png"),
-    "market_2": pygame.image.load("market.png"),
-    "city_2": pygame.image.load("city.png"),
-    "farm_2": pygame.image.load("farm.png"),
-    "temple_2": pygame.image.load("temple.png"),
+    "market": pygame.image.load("market.bmp"),
+    "city": pygame.image.load("city.bmp"),
+    "farm": pygame.image.load("farm.bmp"),
+    "temple": pygame.image.load("temple.bmp"),
 }
 
 for token in other_tokens:
     other_tokens[token] = pygame.transform.scale(other_tokens[token], (70, 70))
 
+class Tile:
+    def __init__(self, tile_type, image):
+        self.tile_type = tile_type
+        self.image = image
+        self.rect = self.image.get_rect()
+
+class Player:
+    def __init__(self, name, player_space_x):
+        self.name = name
+        self.score = {"red": 0, "blue": 0, "green": 0, "black": 0}
+        self.hand = []
+        self.leaders = {
+            "black": Tile("black_leader", leader_tokens["black"]),
+            "blue": Tile("blue_leader", leader_tokens["blue"]),
+            "red": Tile("red_leader", leader_tokens["red"]),
+            "green": Tile("green_leader", leader_tokens["green"]),
+        }
+        self.player_space_x = player_space_x
+        self.place_leaders()
+
+    def place_leaders(self):
+        y_pos = window_height - 150
+        self.leaders["black"].rect.topleft = (self.player_space_x + 10, y_pos)
+        self.leaders["blue"].rect.topleft = (self.player_space_x + 90, y_pos)
+        self.leaders["red"].rect.topleft = (self.player_space_x + 170, y_pos)
+        self.leaders["green"].rect.topleft = (self.player_space_x + 250, y_pos)
+
+    def draw_hand(self, tile_bag):
+        for _ in range(6):
+            if tile_bag:
+                self.hand.append(tile_bag.pop())
+        self.arrange_hand()
+
+    def arrange_hand(self):
+        y_pos = window_height - 150
+        x_start = self.player_space_x + 330
+        for i, tile in enumerate(self.hand):
+            tile.rect.topleft = (x_start + i * 80, y_pos)
+
+    def refill_hand(self, tile_bag):
+        needed = 6 - len(self.hand)
+        for _ in range(needed):
+            if tile_bag:
+                self.hand.append(tile_bag.pop())
+        self.arrange_hand()
+
+
+def create_tile_bag():
+    bag = []
+    # 30 Farm (blue), 15 Market (green), 6 Temple (red), 6 Settlement (black)
+    for _ in range(30):
+        bag.append(Tile("farm", other_tokens["farm"]))
+    for _ in range(15):
+        bag.append(Tile("market", other_tokens["market"]))
+    for _ in range(6):
+        bag.append(Tile("temple", other_tokens["temple"]))
+    for _ in range(6):
+        bag.append(Tile("city", other_tokens["city"]))
+    random.shuffle(bag)
+    return bag
+
+tile_bag = create_tile_bag()
+
 player_space_width = 850
 player_space_height = 160
 player_space_x1 = (window_width - player_space_width * 2 - 50) // 2
 player_space_x2 = player_space_x1 + player_space_width + 50
-player_space_y = window_height - player_space_height - 20
 
-leader_positions = {
-    "black": [player_space_x1 + 10, player_space_y + 10],
-    "blue": [player_space_x1 + 90, player_space_y + 10],
-    "red": [player_space_x1 + 170, player_space_y + 10],
-    "green": [player_space_x1 + 250, player_space_y + 10],
+player1 = Player("Player 1", player_space_x1)
+player2 = Player("Player 2", player_space_x2)
+player1.draw_hand(tile_bag)
+player2.draw_hand(tile_bag)
 
-    "black_2": [player_space_x2 + 10, player_space_y + 10],
-    "blue_2": [player_space_x2 + 90, player_space_y + 10],
-    "red_2": [player_space_x2 + 170, player_space_y + 10],
-    "green_2": [player_space_x2 + 250, player_space_y + 10],
-}
+players = [player1, player2]
+current_player_index = 0
+actions_taken = 0
+board_tiles = []
 
-token_positions = {
-    # For player 1
-    "market": [player_space_x1 + 330, player_space_y + 10],
-    "city": [player_space_x1 + 410, player_space_y + 10],
-    "farm": [player_space_x1 + 490, player_space_y + 10],
-    "temple": [player_space_x1 + 570, player_space_y + 10],
-    # For player 2
-    "market_2": [player_space_x2 + 330, player_space_y + 10],
-    "city_2": [player_space_x2 + 410, player_space_y + 10],
-    "farm_2": [player_space_x2 + 490, player_space_y + 10],
-    "temple_2": [player_space_x2 + 570, player_space_y + 10],
-}
+for (x, y) in temple_with_treasure_tiles:
+    temple_tile = Tile("temple", temple_with_treasure)
+    temple_tile.rect.topleft = (
+        (window_width - screen_width) // 2 + x * tile_size,
+        (window_height - screen_height) // 2 + y * tile_size,
+    )
+    is_occupied = False
+    for t in board_tiles:
+        if t.rect.topleft == temple_tile.rect.topleft:
+            is_occupied = True
+            break
+    if not is_occupied:
+        board_tiles.append(temple_tile)
+
+warning_message = ""
+warning_message_timer = 0
+warning_font = pygame.font.Font(None, 48)
 
 # Undo button setup
 undo_button_width = 100
+
 undo_button_height = 50
 undo_button_x = window_width - undo_button_width - 20
 undo_button_y = 20
 
+# End Turn button setup
+end_turn_button_width = 120
+end_turn_button_height = 50
+end_turn_button_x = window_width - end_turn_button_width - 20
+end_turn_button_y = 80
+end_turn_button_color = (200, 200, 200)
+end_turn_button_hover_color = (180, 180, 180)
+
 # Track previous positions for undo functionality
 previous_leader_positions = {}
-previous_token_positions = {}
+previous_hand_positions = {}
 
-leader_dragging = {color: False for color in leader_tokens}
-token_dragging = {token: False for token in other_tokens}
+
+dragging_tile = None
+dragging_leader = None
+original_drag_pos = None
 
 def snap_to_grid(pos):
     x = (pos[0] - (window_width - screen_width) // 2) // tile_size
     y = (pos[1] - (window_height - screen_height) // 2) // tile_size
     if 0 <= x < grid_width and 0 <= y < grid_height:
-        return ((window_width - screen_width) // 2 + x * tile_size, 
+        return ((window_width - screen_width) // 2 + x * tile_size,
                 (window_height - screen_height) // 2 + y * tile_size)
     return pos
 
+
 def save_previous_positions():
-    global previous_leader_positions, previous_token_positions
-    previous_leader_positions = copy.deepcopy(leader_positions)
-    previous_token_positions = copy.deepcopy(token_positions)
+    global previous_leader_positions, previous_hand_positions
+    previous_leader_positions = {p.name: {color: leader.rect.copy() for color, leader in p.leaders.items()} for p in players}
+    previous_hand_positions = {p.name: [tile.rect.copy() for tile in p.hand] for p in players}
+
 
 def undo_last_move():
-    global leader_positions, token_positions
-    if previous_leader_positions and previous_token_positions:
-        leader_positions = copy.deepcopy(previous_leader_positions)
-        token_positions = copy.deepcopy(previous_token_positions)
+    global players
+    if previous_leader_positions and previous_hand_positions:
+        for p in players:
+            for color, rect in previous_leader_positions[p.name].items():
+                p.leaders[color].rect = rect
+            for i, rect in enumerate(previous_hand_positions[p.name]):
+                p.hand[i].rect = rect
+
+
+tile_color_map = {
+    "farm": "blue",
+    "market": "green",
+    "temple": "red",
+    "city": "black",
+}
+
+def update_score(placed_tile):
+    tile_x = (placed_tile.rect.x - (window_width - screen_width) // 2) // tile_size
+    tile_y = (placed_tile.rect.y - (window_height - screen_height) // 2) // tile_size
+    
+    placed_color = tile_color_map.get(placed_tile.tile_type)
+    if not placed_color:
+        return
+
+    # Find the kingdom the tile is in.
+    # We pass the placed_tile to ignore, because it's not yet part of board_tiles when this is called.
+    # But its rect is at the new position. So get_kingdom needs to see the board state *before* this tile was placed
+    # But wait, update_score is called *after* the tile is placed (rect is updated).
+    # And get_kingdom will use get_tile_at, which will find the tile itself unless we ignore it.
+    # The tile is part of the kingdom it creates/joins, so we should NOT ignore it.
+    kingdom = get_kingdom(tile_x, tile_y, players)
+    if not kingdom:
+        return
+
+    # Look for a leader of the same color in the kingdom.
+    leader_found = False
+    for kx, ky in kingdom:
+        tile_in_kingdom = get_tile_at(kx, ky, players)
+        if tile_in_kingdom and "leader" in tile_in_kingdom.tile_type:
+            leader_color_in_kingdom = tile_in_kingdom.tile_type.split('_')[0]
+            if leader_color_in_kingdom == placed_color:
+                # Find which player owns this leader
+                for p in players:
+                    if tile_in_kingdom in p.leaders.values():
+                        p.score[placed_color] += 1
+                        print(f"DEBUG: Scored 1 {placed_color} point for {p.name} via {leader_color_in_kingdom} leader.")
+                        leader_found = True
+                        break # found player
+                if leader_found:
+                    break # found leader
+    
+    if leader_found:
+        return
+
+    # If no leader of the tile's color is found, look for the black leader (king).
+    king_found = False
+    for kx, ky in kingdom:
+        tile_in_kingdom = get_tile_at(kx, ky, players)
+        if tile_in_kingdom and tile_in_kingdom.tile_type == "black_leader":
+            # Find which player owns the king
+            for p in players:
+                if tile_in_kingdom in p.leaders.values():
+                    p.score[placed_color] += 1
+                    print(f"DEBUG: Scored 1 {placed_color} point for {p.name} via black leader (king).")
+                    king_found = True
+                    break # found player
+            if king_found:
+                break # found king
+
+
+def get_tile_at(grid_x, grid_y, players, ignore_piece=None):
+    # Check board_tiles (for tiles from previous turns)
+    for t in board_tiles:
+        if t is ignore_piece:
+            continue
+        t_x = (t.rect.x - (window_width - screen_width) // 2) // tile_size
+        t_y = (t.rect.y - (window_height - screen_height) // 2) // tile_size
+        if t_x == grid_x and t_y == grid_y:
+            return t
+
+    for p in players:
+        # Check leaders on the board
+        for l in p.leaders.values():
+            if l is ignore_piece:
+                continue
+            # Check if it's on the grid part of the screen
+            if l.rect.left >= (window_width - screen_width) // 2 and l.rect.top < (window_height - screen_height) // 2 + grid_height * tile_size:
+                l_x = (l.rect.x - (window_width - screen_width) // 2) // tile_size
+                l_y = (l.rect.y - (window_height - screen_height) // 2) // tile_size
+                if l_x == grid_x and l_y == grid_y:
+                    return l
+
+        # Check tiles in player hands that are on the board this turn
+        for t in p.hand:
+            if t is ignore_piece:
+                continue
+            # Check if it's on the grid part of the screen
+            if t.rect.left < (window_width - screen_width) // 2 + screen_width and \
+               t.rect.top < (window_height - screen_height) // 2 + grid_height * tile_size and \
+               t.rect.left >= (window_width - screen_width) // 2 and \
+               t.rect.top >= (window_height - screen_height) // 2:
+                t_x = (t.rect.x - (window_width - screen_width) // 2) // tile_size
+                t_y = (t.rect.y - (window_height - screen_height) // 2) // tile_size
+                if t_x == grid_x and t_y == grid_y:
+                    return t
+
+    return None
+
+
+def get_kingdom(grid_x, grid_y, players, ignore_piece=None):
+    if get_tile_at(grid_x, grid_y, players, ignore_piece) is None:
+        return set()
+    kingdom = set()
+    visited = set()
+    queue = [(grid_x, grid_y)]
+    visited.add((grid_x, grid_y))
+
+    while queue:
+        x, y = queue.pop(0)
+        kingdom.add((x, y))
+
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, ny = x + dx, y + dy
+
+            if 0 <= nx < grid_width and 0 <= ny < grid_height and (nx, ny) not in visited:
+                if get_tile_at(nx, ny, players, ignore_piece) is not None:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+    return kingdom
+
+
+def is_valid_move(piece, pos, players):
+    grid_x = (pos[0] - (window_width - screen_width) // 2) // tile_size
+    grid_y = (pos[1] - (window_height - screen_height) // 2) // tile_size
+    print(f"--- Checking valid move for {piece.tile_type} at ({grid_x}, {grid_y}) ---")
+
+    if not (0 <= grid_x < grid_width and 0 <= grid_y < grid_height):
+        print("DEBUG: Invalid - Off board")
+        return False
+
+    occupant = get_tile_at(grid_x, grid_y, players, ignore_piece=piece)
+    if occupant is not None:
+        print(f"DEBUG: Invalid - Space occupied by {occupant.tile_type}")
+        return False
+    
+    print("DEBUG: Space is not occupied.")
+
+    if piece.tile_type == "farm":
+        print(f"DEBUG: Piece is a farm. Checking river tiles. Target is in river_tiles: {(grid_x, grid_y) in river_tiles}")
+        if (grid_x, grid_y) not in river_tiles:
+            print("DEBUG: Invalid - Farm not on a river tile.")
+            return False
+    elif (grid_x, grid_y) in river_tiles:
+        print("DEBUG: Invalid - Non-farm tile on a river tile.")
+        return False
+
+    print("DEBUG: Tile placement rules passed.")
+
+    if "leader" in piece.tile_type:
+        print("DEBUG: Piece is a leader, checking leader rules...")
+        leader_color = piece.tile_type.split('_')[0]
+
+        is_adjacent_to_temple = False
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, ny = grid_x + dx, grid_y + dy
+            if 0 <= nx < grid_width and 0 <= ny < grid_height:
+                adjacent_tile = get_tile_at(nx, ny, players, ignore_piece=piece)
+                if adjacent_tile and adjacent_tile.tile_type == "temple":
+                    print(f"DEBUG: Found adjacent temple at ({nx}, {ny})")
+                    is_adjacent_to_temple = True
+                    break
+        if not is_adjacent_to_temple:
+            print("DEBUG: Invalid - Leader not adjacent to a temple.")
+            return False
+        
+        print("DEBUG: Leader is adjacent to a temple.")
+
+        adjacent_kingdoms = []
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, ny = grid_x + dx, grid_y + dy
+            if 0 <= nx < grid_width and 0 <= ny < grid_height:
+                if get_tile_at(nx, ny, players, ignore_piece=piece) is not None:
+                    is_new_kingdom = True
+                    for k in adjacent_kingdoms:
+                        if (nx, ny) in k:
+                            is_new_kingdom = False
+                            break
+                    if is_new_kingdom:
+                        adjacent_kingdoms.append(get_kingdom(nx, ny, players, ignore_piece=piece))
+        
+        print(f"DEBUG: Found {len(adjacent_kingdoms)} adjacent kingdoms.")
+
+        for kingdom in adjacent_kingdoms:
+            for kx, ky in kingdom:
+                tile_in_kingdom = get_tile_at(kx, ky, players, ignore_piece=piece)
+                if tile_in_kingdom and "leader" in tile_in_kingdom.tile_type:
+                    if tile_in_kingdom.tile_type.split('_')[0] == leader_color:
+                        if tile_in_kingdom != piece:
+                            print(f"DEBUG: Invalid - Found leader of same color in kingdom at ({kx}, {ky})")
+                            return False
+    
+    print("--- Move is valid ---")
+    return True
+
+def end_turn():
+    global current_player_index, actions_taken, board_tiles
+    current_player = players[current_player_index]
+    
+    # Identify placed tiles and remove them from hand
+    placed_tiles = [
+        tile for tile in current_player.hand 
+        if tile.rect.left < (window_width - screen_width) // 2 + screen_width and
+           tile.rect.top < (window_height - screen_height) // 2 + grid_height * tile_size and
+           tile.rect.left >= (window_width - screen_width) // 2 and
+           tile.rect.top >= (window_height - screen_height) // 2
+    ]
+    board_tiles.extend(placed_tiles)
+    current_player.hand = [tile for tile in current_player.hand if tile not in placed_tiles]
+    
+    current_player.refill_hand(tile_bag)
+    current_player_index = (current_player_index + 1) % len(players)
+    actions_taken = 0
 
 def is_point_in_rect(point, rect):
-    return (rect[0] <= point[0] <= rect[0] + rect[2] and
-            rect[1] <= point[1] <= rect[1] + rect[3])
+    return rect.collidepoint(point)
+
+
+def draw_scoreboard():
+    global current_player_index
+    font = pygame.font.Font(None, 28)
+    for i, player in enumerate(players):
+        text_color = red if i == current_player_index else black
+        score_text = f"{player.name}'s Score: "
+        text = font.render(score_text, True, text_color)
+        screen.blit(text, (player.player_space_x, window_height - player_space_height - 60))
+        
+        score_x = player.player_space_x + 200
+        for color, score in player.score.items():
+            
+            pygame.draw.rect(screen, pygame.Color(color), (score_x, window_height - player_space_height - 60, 20, 20))
+            score_val_text = font.render(f"{score}", True, text_color)
+            screen.blit(score_val_text, (score_x + 25, window_height - player_space_height - 60))
+            score_x += 70
 
 while True:
     mouse_pos = pygame.mouse.get_pos()
-    
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                # Check if undo button is clicked
-                if is_point_in_rect(event.pos, (undo_button_x, undo_button_y, undo_button_width, undo_button_height)):
-                    undo_last_move()
-                
-                for color, pos in leader_positions.items():
-                    if (
-                        pos[0] <= event.pos[0] <= pos[0] + leader_tokens[color].get_width()
-                        and pos[1] <= event.pos[1] <= pos[1] + leader_tokens[color].get_height()
-                    ):
-                        save_previous_positions()
-                        leader_dragging[color] = True
-                        mouse_x, mouse_y = event.pos
-                
-                for token, pos in token_positions.items():
-                    if (
-                        pos[0] <= event.pos[0] <= pos[0] + other_tokens[token].get_width()
-                        and pos[1] <= event.pos[1] <= pos[1] + other_tokens[token].get_height()
-                    ):
-                        save_previous_positions()
-                        token_dragging[token] = True
-                        mouse_x, mouse_y = event.pos
-        
+                end_turn_button_rect = pygame.Rect(end_turn_button_x, end_turn_button_y, end_turn_button_width, end_turn_button_height)
+                if is_point_in_rect(mouse_pos, end_turn_button_rect):
+                    end_turn()
+                    continue
+
+                if actions_taken < 2:
+                    if is_point_in_rect(mouse_pos, pygame.Rect(undo_button_x, undo_button_y, undo_button_width, undo_button_height)):
+                        undo_last_move()
+                        continue
+
+                    current_player = players[current_player_index]
+                    for color, leader in current_player.leaders.items():
+                        if is_point_in_rect(mouse_pos, leader.rect):
+                            save_previous_positions()
+                            dragging_leader = leader
+                            original_drag_pos = leader.rect.copy()
+                            break
+                    if not dragging_leader:
+                        for tile in current_player.hand:
+                            if is_point_in_rect(mouse_pos, tile.rect):
+                                save_previous_positions()
+                                dragging_tile = tile
+                                original_drag_pos = tile.rect.copy()
+                                break
+                else:
+                    warning_message = "No more actions this turn!"
+                    warning_message_timer = 120
+
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                for color in leader_dragging:
-                    if leader_dragging[color]:
-                        leader_positions[color] = snap_to_grid(leader_positions[color])
-                    leader_dragging[color] = False
+                if dragging_leader:
+                    new_pos_tuple = snap_to_grid(dragging_leader.rect.center)
+                    if is_valid_move(dragging_leader, new_pos_tuple, players):
+                        dragging_leader.rect.topleft = new_pos_tuple
+                        if dragging_leader.rect.topleft != original_drag_pos.topleft:
+                            actions_taken += 1
+                    else:
+                        dragging_leader.rect.topleft = original_drag_pos.topleft
+                        warning_message = "Invalid move!"
+                        warning_message_timer = 120
+                    dragging_leader = None
+                    original_drag_pos = None
                 
-                for token in token_dragging:
-                    if token_dragging[token]:
-                        token_positions[token] = snap_to_grid(token_positions[token])
-                    token_dragging[token] = False
-        
+                if dragging_tile:
+                    new_pos_tuple = snap_to_grid(dragging_tile.rect.center)
+                    if is_valid_move(dragging_tile, new_pos_tuple, players):
+                        dragging_tile.rect.topleft = new_pos_tuple
+                        if dragging_tile.rect.topleft != original_drag_pos.topleft:
+                            actions_taken += 1
+                        update_score(dragging_tile)
+                    else:
+                        dragging_tile.rect.topleft = original_drag_pos.topleft
+                        warning_message = "Invalid move!"
+                        warning_message_timer = 120
+                    dragging_tile = None
+                    original_drag_pos = None
+
         elif event.type == pygame.MOUSEMOTION:
-            for color, dragging in leader_dragging.items():
-                if dragging:
-                    mouse_x, mouse_y = event.pos
-                    leader_positions[color] = [
-                        mouse_x - leader_tokens[color].get_width() // 2,
-                        mouse_y - leader_tokens[color].get_height() // 2,
-                    ]
-            
-            for token, dragging in token_dragging.items():
-                if dragging:
-                    mouse_x, mouse_y = event.pos
-                    token_positions[token] = [
-                        mouse_x - other_tokens[token].get_width() // 2,
-                        mouse_y - other_tokens[token].get_height() // 2,
-                    ]
+            if dragging_leader:
+                dragging_leader.rect.center = mouse_pos
+            if dragging_tile:
+                dragging_tile.rect.center = mouse_pos
+
 
     screen.fill(desert)
     for x in range(grid_width):
@@ -218,14 +537,6 @@ while True:
                         tile_size - 2,
                     ),
                 )
-            elif (x, y) in temple_with_treasure_tiles:
-                screen.blit(
-                    temple_with_treasure,
-                    (
-                        (window_width - screen_width) // 2 + x * tile_size,
-                        (window_height - screen_height) // 2 + y * tile_size,
-                    ),
-                )
 
     pygame.draw.rect(
         screen,
@@ -242,13 +553,13 @@ while True:
     pygame.draw.rect(
         screen,
         black,
-        (player_space_x1, player_space_y, player_space_width, player_space_height),
+        (player_space_x1, window_height - player_space_height - 20, player_space_width, player_space_height),
         2,
     )
     pygame.draw.rect(
         screen,
         black,
-        (player_space_x2, player_space_y, player_space_width, player_space_height),
+        (player_space_x2, window_height - player_space_height - 20, player_space_width, player_space_height),
         2,
     )
 
@@ -256,16 +567,38 @@ while True:
     undo_button_rect = pygame.Rect(undo_button_x, undo_button_y, undo_button_width, undo_button_height)
     button_color = undo_button_hover_color if undo_button_rect.collidepoint(mouse_pos) else undo_button_color
     pygame.draw.rect(screen, button_color, undo_button_rect)
-    
+
     font = pygame.font.Font(None, 36)
     undo_text = font.render("Undo", True, black)
     text_rect = undo_text.get_rect(center=undo_button_rect.center)
     screen.blit(undo_text, text_rect)
 
-    for color, pos in leader_positions.items():
-        screen.blit(leader_tokens[color], pos)
+    # Draw end turn button
+    end_turn_button_rect = pygame.Rect(end_turn_button_x, end_turn_button_y, end_turn_button_width, end_turn_button_height)
+    end_turn_color = end_turn_button_hover_color if end_turn_button_rect.collidepoint(mouse_pos) else end_turn_button_color
+    pygame.draw.rect(screen, end_turn_color, end_turn_button_rect)
 
-    for token, pos in token_positions.items():
-        screen.blit(other_tokens[token], pos)
+    end_turn_text = font.render("End Turn", True, black)
+    end_turn_text_rect = end_turn_text.get_rect(center=end_turn_button_rect.center)
+    screen.blit(end_turn_text, end_turn_text_rect)
 
+    for tile in board_tiles:
+        screen.blit(tile.image, tile.rect)
+
+    for player in players:
+        for leader in player.leaders.values():
+            screen.blit(leader.image, leader.rect)
+        for tile in player.hand:
+            screen.blit(tile.image, tile.rect)
+
+    draw_scoreboard()
+    if warning_message_timer > 0:
+        text = warning_font.render(warning_message, True, red)
+        text_rect = text.get_rect(center=(window_width // 2, window_height // 2))
+        screen.blit(text, text_rect)
+        warning_message_timer -= 1
+    else:
+        warning_message = ""
+    
     pygame.display.flip()
+

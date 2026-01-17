@@ -1,4 +1,6 @@
 [project]
 name = "tigris_board"
 version = "0.1.0"
-dependencies = ["pygame>=2.5.2"]
+dependencies = [
+    "pygame>=2.5.2",
+]

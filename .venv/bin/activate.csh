@@ -38,8 +38,8 @@ setenv PATH "$VIRTUAL_ENV:q/bin:$PATH:q"
 
 
 
-if ('tigris-board' != "") then
-    setenv VIRTUAL_ENV_PROMPT 'tigris-board'
+if ('tigris_board' != "") then
+    setenv VIRTUAL_ENV_PROMPT 'tigris_board'
 else
     setenv VIRTUAL_ENV_PROMPT "$VIRTUAL_ENV:t:q"
 endif
