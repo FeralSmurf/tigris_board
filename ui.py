@@ -30,3 +30,9 @@ def draw_replace_button(screen, mouse_pos):
     replace_text_rect = replace_text.get_rect(center=replace_button_rect.center)
     screen.blit(replace_text, replace_text_rect)
     return replace_button_rect
+
+def handle_monument_choice(mouse_pos, monument_rects):
+    for i, rect in enumerate(monument_rects):
+        if rect.collidepoint(mouse_pos):
+            return i
+    return None

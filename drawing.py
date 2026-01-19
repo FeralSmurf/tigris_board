@@ -64,15 +64,34 @@ def draw_player_areas(screen):
     screen.blit(discard_text2, (config.player2_discard_area.x + 10, config.player2_discard_area.y + 10))
 
 
-def draw_pieces(screen, board_tiles, players):
+def draw_pieces(screen, board_tiles, players, board_monuments):
     for tile in board_tiles:
         screen.blit(tile.image, tile.rect)
+    for monument in board_monuments:
+        screen.blit(monument.image, monument.rect)
 
     for player in players:
         for leader in player.leaders.values():
             screen.blit(leader.image, leader.rect)
         for tile in player.hand:
             screen.blit(tile.image, tile.rect)
+
+def draw_monument_choices(screen, monuments):
+    # Display monument choices in the center of the screen
+    num_monuments = len(monuments)
+    total_width = num_monuments * 150
+    start_x = (config.window_width - total_width) // 2
+    y = config.window_height // 2 - 70
+
+    drawn_rects = []
+    for i, monument in enumerate(monuments):
+        # Create a temporary rect for display purposes, do not modify monument.rect
+        temp_rect = monument.image.get_rect()
+        temp_rect.topleft = (start_x + i * 150, y)
+        screen.blit(monument.image, temp_rect)
+        drawn_rects.append(temp_rect)
+    return drawn_rects
+
 
 def draw_scoreboard(screen, players, current_player_index):
     # Display current player's turn

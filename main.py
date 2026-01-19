@@ -1,8 +1,8 @@
 import pygame
 import sys
 from config import *
-from assets import temple_with_treasure
-from game_objects import Player, Tile
+from assets import monument_with_treasure
+from game_objects import Player, Tile, create_monuments
 from game_logic import (
     create_tile_bag,
     snap_to_grid,
@@ -11,6 +11,8 @@ from game_logic import (
     is_valid_move,
     update_score,
     end_turn,
+    check_for_monument,
+    remove_tile_at,
 )
 from drawing import (
     draw_board,
@@ -18,15 +20,19 @@ from drawing import (
     draw_pieces,
     draw_scoreboard,
     draw_warning_message,
+    draw_monument_choices,
 )
 from ui import (
     draw_undo_button,
     draw_end_turn_button,
     draw_replace_button,
+    handle_monument_choice,
 )
 
 def main():
     tile_bag = create_tile_bag()
+    color_map = {"red": red, "blue": blue, "green": green, "black": black}
+    available_monuments = create_monuments(color_map)
 
     player1 = Player("Player 1", player_space_x1)
     player2 = Player("Player 2", player_space_x2)
@@ -39,20 +45,24 @@ def main():
     board_tiles = []
     discard_pile = []
     tiles_marked_for_discard = []
+    board_monuments = []
+    game_state = 'GAME'
+    monument_data = None
+    monument_choice_rects = []
 
-    for (x, y) in temple_with_treasure_tiles:
-        temple_tile = Tile("temple", temple_with_treasure)
-        temple_tile.rect.topleft = (
+    for (x, y) in monument_with_treasure_tiles:
+        monument_tile = Tile("monument", monument_with_treasure)
+        monument_tile.rect.topleft = (
             board_left_x + x * tile_size,
             board_top_y + y * tile_size,
         )
         is_occupied = False
         for t in board_tiles:
-            if t.rect.topleft == temple_tile.rect.topleft:
+            if t.rect.topleft == monument_tile.rect.topleft:
                 is_occupied = True
                 break
         if not is_occupied:
-            board_tiles.append(temple_tile)
+            board_tiles.append(monument_tile)
 
     warning_message = ""
     warning_message_timer = 0
@@ -67,6 +77,55 @@ def main():
     while True:
         mouse_pos = pygame.mouse.get_pos()
 
+        if game_state == 'AWAITING_MONUMENT_CHOICE':
+            monument_pos, monument_color = monument_data
+            
+            # Filter monuments
+            possible_monuments = []
+            if monument_color == 'black':
+                # Special rule for black tiles
+                for monument in available_monuments:
+                    if monument_color in monument.colors and monument.colors[0] != 'black':
+                        possible_monuments.append(monument)
+            else:
+                for monument in available_monuments:
+                    if monument_color in monument.colors:
+                        possible_monuments.append(monument)
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    selected_monument_index = handle_monument_choice(mouse_pos, monument_choice_rects)
+                    if selected_monument_index is not None:
+                        selected_monument = possible_monuments[selected_monument_index]
+                        # Place monument
+                        monument_x, monument_y = monument_pos
+                        
+                        selected_monument.rect.topleft = (
+                            board_left_x + monument_x * tile_size,
+                            board_top_y + monument_y * tile_size
+                        )
+                        board_monuments.append(selected_monument)
+                        if selected_monument in available_monuments:
+                            available_monuments.remove(selected_monument)
+                        
+                        # Remove underlying tiles
+                        for dx in range(2):
+                            for dy in range(2):
+                                remove_tile_at(monument_x + dx, monument_y + dy, players, board_tiles)
+                        
+                        game_state = 'GAME'
+                        monument_data = None
+            
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments)
+            monument_choice_rects = draw_monument_choices(screen, possible_monuments)
+            pygame.display.flip()
+            continue
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -75,7 +134,10 @@ def main():
                 if event.button == 1:
                     end_turn_button_rect = pygame.Rect(end_turn_button_x, end_turn_button_y, end_turn_button_width, end_turn_button_height)
                     if end_turn_button_rect.collidepoint(mouse_pos):
-                        current_player_index, actions_taken, board_tiles = end_turn(current_player_index, players, tile_bag, board_tiles)
+                        current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                        if monument_pos:
+                            game_state = 'AWAITING_MONUMENT_CHOICE'
+                            monument_data = (monument_pos, monument_color)
                         tiles_marked_for_discard.clear()
                         continue
 
@@ -91,7 +153,10 @@ def main():
                             current_player.refill_hand(tile_bag)
                             tiles_marked_for_discard.clear()
                             if actions_taken >= 2:
-                                current_player_index, actions_taken, board_tiles = end_turn(current_player_index, players, tile_bag, board_tiles)
+                                current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                                if monument_pos:
+                                    game_state = 'AWAITING_MONUMENT_CHOICE'
+                                    monument_data = (monument_pos, monument_color)
                         elif actions_taken >= 2:
                             warning_message = "No more actions this turn!"
                             warning_message_timer = 120
@@ -131,7 +196,7 @@ def main():
                 if event.button == 1:
                     if dragging_leader:
                         new_pos_tuple = snap_to_grid(dragging_leader.rect.center)
-                        if is_valid_move(dragging_leader, new_pos_tuple, players, board_tiles):
+                        if is_valid_move(dragging_leader, new_pos_tuple, players, board_tiles, board_monuments):
                             dragging_leader.rect.topleft = new_pos_tuple
                             if dragging_leader.rect.topleft != original_drag_pos.topleft:
                                 actions_taken += 1
@@ -142,7 +207,10 @@ def main():
                         dragging_leader = None
                         original_drag_pos = None
                         if actions_taken >= 2:
-                            current_player_index, actions_taken, board_tiles = end_turn(current_player_index, players, tile_bag, board_tiles)
+                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                            if monument_pos:
+                                game_state = 'AWAITING_MONUMENT_CHOICE'
+                                monument_data = (monument_pos, monument_color)
                     
                     elif dragging_tile:
                         current_player = players[current_player_index]
@@ -155,11 +223,24 @@ def main():
                                 tiles_marked_for_discard.remove(dragging_tile)
                             
                             new_pos_tuple = snap_to_grid(dragging_tile.rect.center)
-                            if is_valid_move(dragging_tile, new_pos_tuple, players, board_tiles):
+                            if is_valid_move(dragging_tile, new_pos_tuple, players, board_tiles, board_monuments):
                                 dragging_tile.rect.topleft = new_pos_tuple
                                 if dragging_tile.rect.topleft != original_drag_pos.topleft:
                                     actions_taken += 1
-                                update_score(dragging_tile, players, board_tiles)
+                                
+                                # Move tile from hand to board
+                                current_player.hand.remove(dragging_tile)
+                                board_tiles.append(dragging_tile)
+                                
+                                update_score(dragging_tile, players, board_tiles, board_monuments)
+
+                                grid_x = (new_pos_tuple[0] - board_left_x) // tile_size
+                                grid_y = (new_pos_tuple[1] - board_top_y) // tile_size
+                                
+                                monument_pos, monument_color = check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments)
+                                if monument_pos:
+                                    game_state = 'AWAITING_MONUMENT_CHOICE'
+                                    monument_data = (monument_pos, monument_color)
                             else:
                                 dragging_tile.rect.topleft = original_drag_pos.topleft
                                 warning_message = "Invalid move!"
@@ -167,7 +248,10 @@ def main():
                         dragging_tile = None
                         original_drag_pos = None
                         if actions_taken >= 2:
-                            current_player_index, actions_taken, board_tiles = end_turn(current_player_index, players, tile_bag, board_tiles)
+                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                            if monument_pos:
+                                game_state = 'AWAITING_MONUMENT_CHOICE'
+                                monument_data = (monument_pos, monument_color)
 
             elif event.type == pygame.MOUSEMOTION:
                 if dragging_leader:
@@ -182,7 +266,7 @@ def main():
         draw_end_turn_button(screen, mouse_pos)
         draw_replace_button(screen, mouse_pos)
         
-        draw_pieces(screen, board_tiles, players)
+        draw_pieces(screen, board_tiles, players, board_monuments)
         draw_scoreboard(screen, players, current_player_index)
 
         if warning_message_timer > 0:

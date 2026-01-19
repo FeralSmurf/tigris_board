@@ -1,5 +1,5 @@
 import pygame
-from assets import leader_tokens
+from assets import leader_tokens, monument_images
 from config import window_height, player_space_height, player_space_width
 
 class Tile:
@@ -13,6 +13,7 @@ class Player:
         self.name = name
         self.score = {"red": 0, "blue": 0, "green": 0, "black": 0}
         self.hand = []
+        self.monuments = []
         self.leaders = {
             "black": Tile("black_leader", leader_tokens["black"].copy()),
             "blue": Tile("blue_leader", leader_tokens["blue"].copy()),
@@ -55,3 +56,30 @@ class Player:
             if tile_bag:
                 self.hand.append(tile_bag.pop())
         self.arrange_hand()
+
+class Monument:
+    def __init__(self, colors, image):
+        self.colors = colors
+        self.image = image
+        self.rect = self.image.get_rect()
+
+def create_monuments(color_map):
+    monument_color_combinations = [
+        ("blue", "black"), ("blue", "green"),
+        ("black", "red"), ("black", "green"), ("red", "green")
+    ]
+    monuments = []
+    for colors_tuple in monument_color_combinations:
+        # Sort colors to ensure consistent key for monument_images dictionary
+        sorted_colors = tuple(sorted(colors_tuple))
+        
+        # Retrieve the pre-loaded image
+        image = monument_images.get(sorted_colors)
+        if not image:
+            # Handle case where specific combination might not be loaded or key is different
+            # Fallback or error handling can be added here if needed
+            print(f"Warning: Monument image for {sorted_colors} not found.")
+            continue 
+            
+        monuments.append(Monument(colors_tuple, image))
+    return monuments

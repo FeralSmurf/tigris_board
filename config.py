@@ -28,6 +28,9 @@ red = (255, 0, 0)
 undo_button_color = (200, 200, 200)
 undo_button_hover_color = (180, 180, 180)
 dark_grey = (105, 105, 105)
+blue = (0, 0, 255)
+green = (0, 255, 0)
+
 
 # Game board layout
 river_tiles = [
@@ -38,7 +41,7 @@ river_tiles = [
     (2, 6), (1, 6), (0, 6),
 ]
 
-temple_with_treasure_tiles = [
+monument_with_treasure_tiles = [
     (1, 1), (5, 2), (5, 9), (1, 7), (10, 0), (10, 10), (15, 1), (5, 2), (13, 4), (14, 8), (8, 6),
 ]
 
@@ -83,7 +86,7 @@ replace_button_hover_color = (180, 180, 180)
 tile_color_map = {
     "farm": "blue",
     "market": "green",
-    "temple": "red",
+    "monument": "red",
     "city": "black",
 }
 
