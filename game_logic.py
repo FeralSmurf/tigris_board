@@ -363,32 +363,15 @@ def end_turn(current_player_index, players, tile_bag, board_tiles, board_monumen
     current_player = players[current_player_index]
     message = ""
     
-    placed_tiles = [
-        tile for tile in current_player.hand 
-        if tile.rect.left < config.board_left_x + config.screen_width and
-           tile.rect.top < config.board_top_y + config.grid_height * config.tile_size and
-           tile.rect.left >= config.board_left_x and
-           tile.rect.top >= config.board_top_y
-    ]
-
-    for tile in placed_tiles:
-        board_tiles.append(tile)
-        update_score(tile, players, board_tiles, board_monuments)
-
-        grid_x = (tile.rect.x - config.board_left_x) // config.tile_size
-        grid_y = (tile.rect.y - config.board_top_y) // config.tile_size
-        monument_pos, monument_color = check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments)
-        if monument_pos:
-            return current_player_index, 0, board_tiles, monument_pos, monument_color, False, message
-
+    # Tile placement, scoring, and monument checks are now handled in main.py's event loop.
+    
     score_monuments(players, board_tiles, board_monuments)
     player_who_claimed, treasures_claimed = claim_treasures(players, board_tiles, board_monuments)
     if player_who_claimed:
         message = f"{player_who_claimed} claimed {treasures_claimed} treasures!"
 
-    current_player.hand = [tile for tile in current_player.hand if tile not in placed_tiles]
-    
     if not current_player.refill_hand(tile_bag):
+        # Handle case where player cannot draw tiles
         message = f"{current_player.name} cannot draw enough tiles from the bag!"
         return current_player_index, 0, board_tiles, None, None, True, message
 
