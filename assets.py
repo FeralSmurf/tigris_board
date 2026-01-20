@@ -4,6 +4,8 @@ from config import tile_size
 # Load and scale monument with treasure image
 monument_with_treasure = pygame.image.load("temple_with_treasure.bmp")
 monument_with_treasure = pygame.transform.scale(monument_with_treasure, (tile_size, tile_size))
+monument_without_treasure = pygame.image.load("temple_without_treasure.bmp")
+monument_without_treasure = pygame.transform.scale(monument_without_treasure, (tile_size, tile_size))
 
 # Load and scale leader tokens
 leader_tokens = {

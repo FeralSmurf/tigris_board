@@ -3,10 +3,11 @@ from assets import leader_tokens, monument_images
 from config import window_height, player_space_height, player_space_width
 
 class Tile:
-    def __init__(self, tile_type, image):
+    def __init__(self, tile_type, image, has_treasure=False):
         self.tile_type = tile_type
         self.image = image
         self.rect = self.image.get_rect()
+        self.has_treasure = has_treasure
 
 class Player:
     def __init__(self, name, player_space_x):
@@ -14,6 +15,7 @@ class Player:
         self.score = {"red": 0, "blue": 0, "green": 0, "black": 0}
         self.hand = []
         self.monuments = []
+        self.treasures = 0
         self.leaders = {
             "black": Tile("black_leader", leader_tokens["black"].copy()),
             "blue": Tile("blue_leader", leader_tokens["blue"].copy()),
@@ -52,10 +54,13 @@ class Player:
 
     def refill_hand(self, tile_bag):
         needed = 6 - len(self.hand)
+        if needed > 0 and not tile_bag:
+            return False
         for _ in range(needed):
             if tile_bag:
                 self.hand.append(tile_bag.pop())
         self.arrange_hand()
+        return True
 
 class Monument:
     def __init__(self, colors, image):

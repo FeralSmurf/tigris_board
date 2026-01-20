@@ -1,6 +1,6 @@
 import random
 from game_objects import Tile, Monument
-from assets import other_tokens
+from assets import other_tokens, monument_without_treasure
 import config
 
 def create_tile_bag():
@@ -89,9 +89,25 @@ def get_tile_at(grid_x, grid_y, players, board_tiles, board_monuments, ignore_pi
     return None
 
 
+def get_tile_color(tile):
+    if not tile:
+        return None
+    if isinstance(tile, Monument):
+        return None
+    if isinstance(tile, Tile):
+        return config.tile_color_map.get(tile.tile_type)
+    return None
+
+
 def get_kingdom(grid_x, grid_y, players, board_tiles, board_monuments, ignore_piece=None):
-    if get_tile_at(grid_x, grid_y, players, board_tiles, board_monuments, ignore_piece) is None:
+    start_tile = get_tile_at(grid_x, grid_y, players, board_tiles, board_monuments, ignore_piece)
+    if not start_tile:
         return set()
+
+    kingdom_color = get_tile_color(start_tile)
+    if kingdom_color is None:
+        return set()
+
     kingdom = set()
     visited = set()
     queue = [(grid_x, grid_y)]
@@ -105,7 +121,8 @@ def get_kingdom(grid_x, grid_y, players, board_tiles, board_monuments, ignore_pi
             nx, ny = x + dx, y + dy
 
             if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height and (nx, ny) not in visited:
-                if get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece) is not None:
+                tile = get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece)
+                if tile and get_tile_color(tile) == kingdom_color:
                     visited.add((nx, ny))
                     queue.append((nx, ny))
     return kingdom
@@ -127,7 +144,7 @@ def is_valid_move(piece, pos, players, board_tiles, board_monuments):
     elif (grid_x, grid_y) in config.river_tiles:
         return False
 
-    if "leader" in piece.tile_type:
+    if isinstance(piece, Tile) and "leader" in piece.tile_type:
         leader_color = piece.tile_type.split('_')[0]
 
         is_adjacent_to_monument = False
@@ -135,7 +152,8 @@ def is_valid_move(piece, pos, players, board_tiles, board_monuments):
             nx, ny = grid_x + dx, grid_y + dy
             if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
                 adjacent_tile = get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece)
-                if adjacent_tile and adjacent_tile.tile_type == "monument":
+                if (adjacent_tile and isinstance(adjacent_tile, Monument)) or \
+                   (adjacent_tile and isinstance(adjacent_tile, Tile) and adjacent_tile.tile_type == "monument"):
                     is_adjacent_to_monument = True
                     break
         if not is_adjacent_to_monument:
@@ -155,15 +173,37 @@ def is_valid_move(piece, pos, players, board_tiles, board_monuments):
                         adjacent_kingdoms.append(get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece))
 
         for kingdom in adjacent_kingdoms:
+            # Check for leaders of same color adjacent to this kingdom
+            adjacent_squares = set()
             for kx, ky in kingdom:
-                tile_in_kingdom = get_tile_at(kx, ky, players, board_tiles, board_monuments, ignore_piece=piece)
-                if isinstance(tile_in_kingdom, Monument):
-                    continue
-                if tile_in_kingdom and "leader" in tile_in_kingdom.tile_type:
-                    if tile_in_kingdom.tile_type.split('_')[0] == leader_color:
-                        if tile_in_kingdom != piece:
-                            return False
+                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                    ax, ay = kx + dx, ky + dy
+                    if (0 <= ax < config.grid_width and 0 <= ay < config.grid_height) and (ax, ay) not in kingdom:
+                        adjacent_squares.add((ax, ay))
+            
+            for ax, ay in adjacent_squares:
+                adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments, ignore_piece=piece)
+                if adj_piece and isinstance(adj_piece, Tile) and "leader" in adj_piece.tile_type:
+                    if adj_piece.tile_type.split('_')[0] == leader_color:
+                        return False
     return True
+
+def get_kingdom_leaders(kingdom, players, board_tiles, board_monuments):
+    leaders = []
+    if not kingdom:
+        return leaders
+    adjacent_squares = set()
+    for kx, ky in kingdom:
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            ax, ay = kx + dx, ky + dy
+            if (0 <= ax < config.grid_width and 0 <= ay < config.grid_height) and (ax, ay) not in kingdom:
+                adjacent_squares.add((ax, ay))
+    
+    for ax, ay in adjacent_squares:
+        adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments)
+        if adj_piece and isinstance(adj_piece, Tile) and "leader" in adj_piece.tile_type:
+            leaders.append(adj_piece)
+    return leaders
 
 def update_score(placed_tile, players, board_tiles, board_monuments):
     tile_x = (placed_tile.rect.x - config.board_left_x) // config.tile_size
@@ -177,47 +217,31 @@ def update_score(placed_tile, players, board_tiles, board_monuments):
     if not kingdom:
         return
 
+    kingdom_leaders = get_kingdom_leaders(kingdom, players, board_tiles, board_monuments)
+
+    # Score for leader of same color
     leader_found = False
-    for kx, ky in kingdom:
-        tile_in_kingdom = get_tile_at(kx, ky, players, board_tiles, board_monuments)
-        if isinstance(tile_in_kingdom, Monument):
-            continue
-        if tile_in_kingdom and "leader" in tile_in_kingdom.tile_type:
-            leader_color_in_kingdom = tile_in_kingdom.tile_type.split('_')[0]
-            if leader_color_in_kingdom == placed_color:
-                for p in players:
-                    if tile_in_kingdom in p.leaders.values():
-                        p.score[placed_color] += 1
-                        leader_found = True
-                        break
-                if leader_found:
-                    break
+    for leader in kingdom_leaders:
+        leader_color = leader.tile_type.split('_')[0]
+        if leader_color == placed_color:
+            for p in players:
+                if leader in p.leaders.values():
+                    p.score[placed_color] += 1
+                    leader_found = True
+                    break # score once per tile placement for this color
+            if leader_found:
+                break
     
     if leader_found:
         return
 
-    king_found = False
-    for kx, ky in kingdom:
-        tile_in_kingdom = get_tile_at(kx, ky, players, board_tiles, board_monuments)
-        if isinstance(tile_in_kingdom, Monument):
-            continue
-        if tile_in_kingdom and tile_in_kingdom.tile_type == "black_leader":
+    # Score for king (black leader) if no other leader of the right color scored
+    for leader in kingdom_leaders:
+        if leader.tile_type == "black_leader":
             for p in players:
-                if tile_in_kingdom in p.leaders.values():
+                if leader in p.leaders.values():
                     p.score[placed_color] += 1
-                    king_found = True
-                    break
-            if king_found:
-                break
-
-def get_tile_color(tile):
-    if not tile:
-        return None
-    if isinstance(tile, Monument):
-        return None
-    if isinstance(tile, Tile):
-        return config.tile_color_map.get(tile.tile_type)
-    return None
+                    return # Score once per tile placement
 
 def check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments):
     # Check the four 2x2 squares that include the new tile
@@ -256,21 +280,88 @@ def score_monuments(players, board_tiles, board_monuments):
         monument_x = (monument.rect.x - config.board_left_x) // config.tile_size
         monument_y = (monument.rect.y - config.board_top_y) // config.tile_size
         
-        kingdom = get_kingdom(monument_x, monument_y, players, board_tiles, board_monuments)
-        
+        # Find all unique kingdoms adjacent to the monument
+        adjacent_kingdoms = []
+        for i in range(2):
+            for j in range(2):
+                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                    nx, ny = monument_x + i + dx, monument_y + j + dy
+                    
+                    # Ensure adjacent tile is on board and not part of the monument itself
+                    on_board = 0 <= nx < config.grid_width and 0 <= ny < config.grid_height
+                    part_of_monument = monument_x <= nx < monument_x + 2 and monument_y <= ny < monument_y + 2
+                    if not (on_board and not part_of_monument):
+                        continue
+
+                    # If it's a tile, get its kingdom
+                    if get_tile_at(nx, ny, players, board_tiles, board_monuments):
+                        kingdom = get_kingdom(nx, ny, players, board_tiles, board_monuments)
+                        if kingdom and kingdom not in adjacent_kingdoms:
+                            adjacent_kingdoms.append(kingdom)
+
+        # Now score for each color of the monument
         for color in monument.colors:
-            for player in players:
-                leader_in_kingdom = False
-                for kx, ky in kingdom:
-                    piece = get_tile_at(kx, ky, players, board_tiles, board_monuments)
-                    if isinstance(piece, Tile) and piece.tile_type == f"{color}_leader" and piece in player.leaders.values():
-                        leader_in_kingdom = True
-                        break
-                if leader_in_kingdom:
-                    player.score[color] += 1
+            for p in players:
+                player_has_leader_for_color = False
+                for kingdom in adjacent_kingdoms:
+                    leaders = get_kingdom_leaders(kingdom, players, board_tiles, board_monuments)
+                    for leader in leaders:
+                        if leader in p.leaders.values() and leader.tile_type.split('_')[0] == color:
+                            p.score[color] += 1
+                            player_has_leader_for_color = True
+                            break # Found leader for this player and color, break from leaders loop
+                    if player_has_leader_for_color:
+                        break # break from kingdoms loop
+
+def claim_treasures(players, board_tiles, board_monuments):
+    all_kingdoms = []
+    visited_tiles = set()
+    player_who_claimed = None
+    treasures_claimed = 0
+
+    for y in range(config.grid_height):
+        for x in range(config.grid_width):
+            if (x, y) not in visited_tiles:
+                kingdom = get_kingdom(x, y, players, board_tiles, board_monuments)
+                if kingdom:
+                    all_kingdoms.append(kingdom)
+                    visited_tiles.update(kingdom)
+
+    for kingdom in all_kingdoms:
+        treasures_in_kingdom = []
+        for kx, ky in kingdom:
+            tile = get_tile_at(kx, ky, players, board_tiles, board_monuments)
+            if tile and isinstance(tile, Tile) and tile.has_treasure:
+                treasures_in_kingdom.append(tile)
+
+        if len(treasures_in_kingdom) > 1:
+            trader_owner = None
+            kingdom_leaders = get_kingdom_leaders(kingdom, players, board_tiles, board_monuments)
+            for leader in kingdom_leaders:
+                if leader.tile_type == "green_leader":
+                    for p in players:
+                        if leader in p.leaders.values():
+                            trader_owner = p
+                            break
+                if trader_owner:
+                    break
+            
+            if trader_owner:
+                # For now, we will award all but one treasure. The rules about corner treasures are not implemented.
+                num_treasures_to_award = len(treasures_in_kingdom) - 1
+                trader_owner.treasures += num_treasures_to_award
+                player_who_claimed = trader_owner.name
+                treasures_claimed = num_treasures_to_award
+                for i in range(num_treasures_to_award):
+                    treasures_in_kingdom[i].has_treasure = False
+                    treasures_in_kingdom[i].image = monument_without_treasure
+    
+    return player_who_claimed, treasures_claimed
+
 
 def end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments):
     current_player = players[current_player_index]
+    message = ""
     
     placed_tiles = [
         tile for tile in current_player.hand 
@@ -281,23 +372,41 @@ def end_turn(current_player_index, players, tile_bag, board_tiles, board_monumen
     ]
 
     for tile in placed_tiles:
+        board_tiles.append(tile)
+        update_score(tile, players, board_tiles, board_monuments)
+
         grid_x = (tile.rect.x - config.board_left_x) // config.tile_size
         grid_y = (tile.rect.y - config.board_top_y) // config.tile_size
         monument_pos, monument_color = check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments)
         if monument_pos:
-            board_tiles.extend(placed_tiles)
-            return current_player_index, 0, board_tiles, monument_pos, monument_color
+            return current_player_index, 0, board_tiles, monument_pos, monument_color, False, message
 
-    board_tiles.extend(placed_tiles)
     score_monuments(players, board_tiles, board_monuments)
+    player_who_claimed, treasures_claimed = claim_treasures(players, board_tiles, board_monuments)
+    if player_who_claimed:
+        message = f"{player_who_claimed} claimed {treasures_claimed} treasures!"
 
     current_player.hand = [tile for tile in current_player.hand if tile not in placed_tiles]
     
-    current_player.refill_hand(tile_bag)
+    if not current_player.refill_hand(tile_bag):
+        message = f"{current_player.name} cannot draw enough tiles from the bag!"
+        return current_player_index, 0, board_tiles, None, None, True, message
+
+    game_over = check_game_end(board_tiles)
+    
     current_player_index = (current_player_index + 1) % len(players)
     actions_taken = 0
     
-    return current_player_index, actions_taken, board_tiles, None, None
+    return current_player_index, actions_taken, board_tiles, None, None, game_over, message
+
+def check_game_end(board_tiles):
+    treasures_on_board = 0
+    for tile in board_tiles:
+        if tile.has_treasure:
+            treasures_on_board += 1
+    if treasures_on_board <= 2:
+        return True
+    return False
 
 def remove_tile_at(grid_x, grid_y, players, board_tiles):
     # Check board_tiles

@@ -29,6 +29,35 @@ from ui import (
     handle_monument_choice,
 )
 
+def calculate_winner(players):
+    for player in players:
+        player.treasures_as_wild = player.treasures
+    
+    for player in players:
+        sorted_scores = sorted(player.score.values())
+        player.final_score = sorted_scores[0] + player.treasures_as_wild
+
+    winner = None
+    max_score = -1
+
+    for player in players:
+        if player.final_score > max_score:
+            max_score = player.final_score
+            winner = player
+        elif player.final_score == max_score:
+            # Tie-breaking logic
+            # Compare second-weakest, then third, etc.
+            p1_scores = sorted(player.score.values())
+            w_scores = sorted(winner.score.values())
+            for i in range(1, 4):
+                if p1_scores[i] > w_scores[i]:
+                    winner = player
+                    break
+                elif p1_scores[i] < w_scores[i]:
+                    break
+    
+    return winner
+
 def main():
     tile_bag = create_tile_bag()
     color_map = {"red": red, "blue": blue, "green": green, "black": black}
@@ -49,9 +78,10 @@ def main():
     game_state = 'GAME'
     monument_data = None
     monument_choice_rects = []
+    winner = None
 
     for (x, y) in monument_with_treasure_tiles:
-        monument_tile = Tile("monument", monument_with_treasure)
+        monument_tile = Tile("monument", monument_with_treasure, has_treasure=True)
         monument_tile.rect.topleft = (
             board_left_x + x * tile_size,
             board_top_y + y * tile_size,
@@ -77,6 +107,27 @@ def main():
     while True:
         mouse_pos = pygame.mouse.get_pos()
 
+        if game_state == 'GAME_OVER':
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+            
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments)
+            draw_scoreboard(screen, players, current_player_index)
+
+            if winner:
+                winner_text = f"Winner: {winner.name}"
+                winner_font = pygame.font.Font(None, 100)
+                text_surface = winner_font.render(winner_text, True, (0, 0, 0))
+                text_rect = text_surface.get_rect(center=(window_width // 2, window_height // 2))
+                screen.blit(text_surface, text_rect)
+
+            pygame.display.flip()
+            continue
+        
         if game_state == 'AWAITING_MONUMENT_CHOICE':
             monument_pos, monument_color = monument_data
             
@@ -91,6 +142,13 @@ def main():
                 for monument in available_monuments:
                     if monument_color in monument.colors:
                         possible_monuments.append(monument)
+            
+            if not possible_monuments:
+                warning_message = "No valid monuments available to place."
+                warning_message_timer = 120
+                game_state = 'GAME'
+                monument_data = None
+                continue
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -134,8 +192,14 @@ def main():
                 if event.button == 1:
                     end_turn_button_rect = pygame.Rect(end_turn_button_x, end_turn_button_y, end_turn_button_width, end_turn_button_height)
                     if end_turn_button_rect.collidepoint(mouse_pos):
-                        current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
-                        if monument_pos:
+                        current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                        if message:
+                            warning_message = message
+                            warning_message_timer = 120
+                        if game_over:
+                            winner = calculate_winner(players)
+                            game_state = 'GAME_OVER'
+                        elif monument_pos:
                             game_state = 'AWAITING_MONUMENT_CHOICE'
                             monument_data = (monument_pos, monument_color)
                         tiles_marked_for_discard.clear()
@@ -150,11 +214,21 @@ def main():
                                 if tile in current_player.hand:
                                     current_player.hand.remove(tile)
                                     discard_pile.append(tile)
-                            current_player.refill_hand(tile_bag)
+                            if not current_player.refill_hand(tile_bag):
+                                warning_message = f"{current_player.name} cannot draw enough tiles from the bag!"
+                                warning_message_timer = 120
+                                winner = calculate_winner(players)
+                                game_state = 'GAME_OVER'
                             tiles_marked_for_discard.clear()
                             if actions_taken >= 2:
-                                current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
-                                if monument_pos:
+                                current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                                if message:
+                                    warning_message = message
+                                    warning_message_timer = 120
+                                if game_over:
+                                    winner = calculate_winner(players)
+                                    game_state = 'GAME_OVER'
+                                elif monument_pos:
                                     game_state = 'AWAITING_MONUMENT_CHOICE'
                                     monument_data = (monument_pos, monument_color)
                         elif actions_taken >= 2:
@@ -207,11 +281,16 @@ def main():
                         dragging_leader = None
                         original_drag_pos = None
                         if actions_taken >= 2:
-                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
-                            if monument_pos:
+                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                            if message:
+                                warning_message = message
+                                warning_message_timer = 120
+                            if game_over:
+                                winner = calculate_winner(players)
+                                game_state = 'GAME_OVER'
+                            elif monument_pos:
                                 game_state = 'AWAITING_MONUMENT_CHOICE'
-                                monument_data = (monument_pos, monument_color)
-                    
+                                monument_data = (monument_pos, monument_color)                    
                     elif dragging_tile:
                         current_player = players[current_player_index]
                         current_discard_area = player1_discard_area if current_player == player1 else player2_discard_area
@@ -248,8 +327,14 @@ def main():
                         dragging_tile = None
                         original_drag_pos = None
                         if actions_taken >= 2:
-                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
-                            if monument_pos:
+                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
+                            if message:
+                                warning_message = message
+                                warning_message_timer = 120
+                            if game_over:
+                                winner = calculate_winner(players)
+                                game_state = 'GAME_OVER'
+                            elif monument_pos:
                                 game_state = 'AWAITING_MONUMENT_CHOICE'
                                 monument_data = (monument_pos, monument_color)
 
