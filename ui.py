@@ -36,3 +36,13 @@ def handle_monument_choice(mouse_pos, monument_rects):
         if rect.collidepoint(mouse_pos):
             return i
     return None
+
+def draw_commit_button(screen, mouse_pos):
+    commit_button_rect = pygame.Rect(config.commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
+    commit_color = config.commit_button_hover_color if commit_button_rect.collidepoint(mouse_pos) else config.commit_button_color
+    pygame.draw.rect(screen, commit_color, commit_button_rect)
+
+    commit_text = config.button_font.render("Commit", True, config.black)
+    commit_text_rect = commit_text.get_rect(center=commit_button_rect.center)
+    screen.blit(commit_text, commit_text_rect)
+    return commit_button_rect

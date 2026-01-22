@@ -40,6 +40,18 @@ class Player:
         self.leaders["red"].rect.topleft = (x_start + 160, y_pos)
         self.leaders["green"].rect.topleft = (x_start + 240, y_pos)
 
+    def reset_leader(self, leader_color):
+        y_pos = window_height - player_space_height - 20 + 10 # top of player space + 10px padding
+        x_start = self.player_space_x + (player_space_width - (4 * 70 + 3 * 10)) // 2 # Center the leaders block
+        if leader_color == "black":
+            self.leaders["black"].rect.topleft = (x_start, y_pos)
+        elif leader_color == "blue":
+            self.leaders["blue"].rect.topleft = (x_start + 80, y_pos)
+        elif leader_color == "red":
+            self.leaders["red"].rect.topleft = (x_start + 160, y_pos)
+        elif leader_color == "green":
+            self.leaders["green"].rect.topleft = (x_start + 240, y_pos)
+
     def draw_hand(self, tile_bag):
         for _ in range(6):
             if tile_bag:

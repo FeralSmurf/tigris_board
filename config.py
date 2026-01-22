@@ -21,7 +21,7 @@ board_left_x = (window_width - screen_width) // 2
 board_top_y = (window_height - screen_height) // 2 - 20
 
 # Colors
-desert = (233, 200, 144)
+desert = (244, 218, 185)
 black = (0, 0, 0)
 river = (138, 202, 238)
 red = (255, 0, 0)
@@ -81,6 +81,13 @@ replace_button_x = window_width - replace_button_width - 20
 replace_button_y = 140
 replace_button_color = (200, 200, 200)
 replace_button_hover_color = (180, 180, 180)
+
+commit_button_width = 120
+commit_button_height = 50
+commit_button_x = window_width - commit_button_width - 20
+commit_button_y = 200
+commit_button_color = (200, 200, 200)
+commit_button_hover_color = (180, 180, 180)
 
 # Tile color mapping for scoring
 tile_color_map = {

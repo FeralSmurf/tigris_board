@@ -64,7 +64,7 @@ def draw_player_areas(screen):
     screen.blit(discard_text2, (config.player2_discard_area.x + 10, config.player2_discard_area.y + 10))
 
 
-def draw_pieces(screen, board_tiles, players, board_monuments):
+def draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict=[]):
     for tile in board_tiles:
         screen.blit(tile.image, tile.rect)
     for monument in board_monuments:
@@ -75,6 +75,8 @@ def draw_pieces(screen, board_tiles, players, board_monuments):
             screen.blit(leader.image, leader.rect)
         for tile in player.hand:
             screen.blit(tile.image, tile.rect)
+            if tile in tiles_for_conflict:
+                pygame.draw.rect(screen, (255, 255, 0), tile.rect, 3) # Yellow border for selected tiles
 
 def draw_monument_choices(screen, monuments):
     # Display monument choices in the center of the screen

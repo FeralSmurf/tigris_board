@@ -172,23 +172,10 @@ def is_valid_move(piece, pos, players, board_tiles, board_monuments):
                     if is_new_kingdom:
                         adjacent_kingdoms.append(get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece))
 
-        for kingdom in adjacent_kingdoms:
-            # Check for leaders of same color adjacent to this kingdom
-            adjacent_squares = set()
-            for kx, ky in kingdom:
-                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                    ax, ay = kx + dx, ky + dy
-                    if (0 <= ax < config.grid_width and 0 <= ay < config.grid_height) and (ax, ay) not in kingdom:
-                        adjacent_squares.add((ax, ay))
-            
-            for ax, ay in adjacent_squares:
-                adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments, ignore_piece=piece)
-                if adj_piece and isinstance(adj_piece, Tile) and "leader" in adj_piece.tile_type:
-                    if adj_piece.tile_type.split('_')[0] == leader_color:
-                        return False
+
     return True
 
-def get_kingdom_leaders(kingdom, players, board_tiles, board_monuments):
+def get_kingdom_leaders(kingdom, players, board_tiles, board_monuments, ignore_piece=None):
     leaders = []
     if not kingdom:
         return leaders
@@ -200,7 +187,7 @@ def get_kingdom_leaders(kingdom, players, board_tiles, board_monuments):
                 adjacent_squares.add((ax, ay))
     
     for ax, ay in adjacent_squares:
-        adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments)
+        adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments, ignore_piece=ignore_piece)
         if adj_piece and isinstance(adj_piece, Tile) and "leader" in adj_piece.tile_type:
             leaders.append(adj_piece)
     return leaders
@@ -255,7 +242,7 @@ def check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments):
         ]
         
         # Check if all tiles are on the board and of the same color
-        first_tile = get_tile_at(coords[0][0], coords[0][1], players, board_tiles, board_monuments) # Corrected: added players, board_tiles, board_monuments arguments
+        first_tile = get_tile_at(coords[0][0], coords[0][1], players, board_tiles, board_monuments)
         if not first_tile:
             continue
             
@@ -393,19 +380,286 @@ def check_game_end(board_tiles):
 
 def remove_tile_at(grid_x, grid_y, players, board_tiles):
     # Check board_tiles
+    tile_to_remove = None
     for t in board_tiles:
         t_x = (t.rect.x - config.board_left_x) // config.tile_size
         t_y = (t.rect.y - config.board_top_y) // config.tile_size
         if t_x == grid_x and t_y == grid_y:
-            board_tiles.remove(t)
-            return
+            tile_to_remove = t
+            break
+    if tile_to_remove:
+        board_tiles.remove(tile_to_remove)
+        return
 
     # Check hands of players
     for p in players:
+        tile_to_remove = None
         for t in p.hand:
             if t.rect.left >= config.board_left_x and t.rect.top >= config.board_top_y:
                 t_x = (t.rect.x - config.board_left_x) // config.tile_size
                 t_y = (t.rect.y - config.board_top_y) // config.tile_size
                 if t_x == grid_x and t_y == grid_y:
-                    p.hand.remove(t)
-                    return
+                    tile_to_remove = t
+                    break
+        if tile_to_remove:
+            p.hand.remove(tile_to_remove)
+            return
+def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
+    grid_x = (pos[0] - config.board_left_x) // config.tile_size
+    grid_y = (pos[1] - config.board_top_y) // config.tile_size
+
+    adjacent_kingdoms = []
+    for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = grid_x + dx, grid_y + dy
+        if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
+            if get_tile_at(nx, ny, players, board_tiles, board_monuments) is not None:
+                is_new_kingdom = True
+                for k in adjacent_kingdoms:
+                    if (nx, ny) in k:
+                        is_new_kingdom = False
+                        break
+                if is_new_kingdom:
+                    adjacent_kingdoms.append(get_kingdom(nx, ny, players, board_tiles, board_monuments))
+
+    # A revolt occurs when a leader is placed in a kingdom that already has a leader of the same color.
+    if isinstance(piece, Tile) and "leader" in piece.tile_type:
+        leader_color = piece.tile_type.split('_')[0]
+        for kingdom in adjacent_kingdoms:
+            found_leaders = get_kingdom_leaders(kingdom, players, board_tiles, board_monuments, ignore_piece=piece)
+            for leader in found_leaders:
+                if leader.tile_type.split('_')[0] == leader_color:
+                    return 'REVOLT', [leader_color]
+    
+    # A war happens when two kingdoms are united through the placement of a tile
+    elif isinstance(piece, Tile) and "leader" not in piece.tile_type:
+        if len(adjacent_kingdoms) > 1:
+            all_leaders = []
+            for kingdom in adjacent_kingdoms:
+                all_leaders.extend(get_kingdom_leaders(kingdom, players, board_tiles, board_monuments))
+            
+            leader_colors = [l.tile_type.split('_')[0] for l in all_leaders]
+            
+            conflict_colors = []
+            for color in set(leader_colors):
+                if leader_colors.count(color) > 1:
+                    conflict_colors.append(color)
+
+            if conflict_colors:
+                return 'WAR', conflict_colors
+
+    return None, None
+
+def resolve_revolt(attacker_leader, players, board_tiles, board_monuments, committed_tiles):
+    # Find the kingdom and the defender
+    grid_x = (attacker_leader.rect.x - config.board_left_x) // config.tile_size
+    grid_y = (attacker_leader.rect.y - config.board_top_y) // config.tile_size
+    leader_color = attacker_leader.tile_type.split('_')[0]
+    
+    defender_leader = None
+    kingdom = None
+
+    adjacent_kingdoms = []
+    for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = grid_x + dx, grid_y + dy
+        if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
+            tile = get_tile_at(nx, ny, players, board_tiles, board_monuments)
+            if tile is not None:
+                k = get_kingdom(nx, ny, players, board_tiles, board_monuments)
+                if k and k not in adjacent_kingdoms:
+                    adjacent_kingdoms.append(k)
+    
+    for k in adjacent_kingdoms:
+        for leader in get_kingdom_leaders(k, players, board_tiles, board_monuments):
+            if leader.tile_type.split('_')[0] == leader_color:
+                defender_leader = leader
+                kingdom = k
+                break
+        if defender_leader:
+            break
+            
+    if not defender_leader:
+        return None, None # Should not happen if check_for_conflict is correct
+
+    # Determine attacker and defender players
+    attacker = None
+    defender = None
+    for player in players:
+        if attacker_leader in player.leaders.values():
+            attacker = player
+        if defender_leader in player.leaders.values():
+            defender = player
+
+    # Count adjacent temple tiles
+    attacker_temples = 0
+    defender_temples = 0
+
+    # Attacker's adjacent temples
+    for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = grid_x + dx, grid_y + dy
+        if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
+            tile = get_tile_at(nx, ny, players, board_tiles, board_monuments)
+            if tile and isinstance(tile, Tile) and tile.tile_type == 'monument':
+                attacker_temples += 1
+
+    # Defender's adjacent temples
+    defender_grid_x = (defender_leader.rect.x - config.board_left_x) // config.tile_size
+    defender_grid_y = (defender_leader.rect.y - config.board_top_y) // config.tile_size
+    for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = defender_grid_x + dx, defender_grid_y + dy
+        if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
+            tile = get_tile_at(nx, ny, players, board_tiles, board_monuments)
+            if tile and isinstance(tile, Tile) and tile.tile_type == 'monument':
+                defender_temples += 1
+    
+    # Add committed tiles from hand (placeholder)
+    attacker_temples += committed_tiles.get(attacker.name, 0)
+    defender_temples += committed_tiles.get(defender.name, 0)
+    
+    # Determine winner
+    if attacker_temples > defender_temples:
+        winner = attacker
+        loser = defender
+        loser_leader = defender_leader
+    else: # Defender wins ties
+        winner = defender
+        loser = attacker
+        loser_leader = attacker_leader
+
+    # Update score and remove loser's leader
+    winner.score['red'] += 1
+    loser.reset_leader(loser_leader.tile_type.split('_')[0])
+
+def get_leader_adjacent_squares(kingdom):
+    adjacent_squares = set()
+    for kx, ky in kingdom:
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            ax, ay = kx + dx, ky + dy
+            if (0 <= ax < config.grid_width and 0 <= ay < config.grid_height) and (ax, ay) not in kingdom:
+                adjacent_squares.add((ax, ay))
+    return adjacent_squares
+
+def resolve_war(placing_player, placed_tile, players, board_tiles, board_monuments, committed_tiles):
+    grid_x = (placed_tile.rect.x - config.board_left_x) // config.tile_size
+    grid_y = (placed_tile.rect.y - config.board_top_y) // config.tile_size
+
+    # 1. Find adjacent kingdoms
+    adjacent_kingdoms = []
+    for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = grid_x + dx, grid_y + dy
+        if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
+            tile = get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece=placed_tile)
+            if tile:
+                kingdom = get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=placed_tile)
+                if kingdom and kingdom not in adjacent_kingdoms:
+                    adjacent_kingdoms.append(kingdom)
+
+    if len(adjacent_kingdoms) < 2:
+        return None, None
+
+    # 2. Find all leaders in the involved kingdoms
+    all_leaders = []
+    for kingdom in adjacent_kingdoms:
+        all_leaders.extend(get_kingdom_leaders(kingdom, players, board_tiles, board_monuments))
+
+    # 3. Group leaders by color
+    leaders_by_color = {}
+    for leader in all_leaders:
+        color = leader.tile_type.split('_')[0]
+        if color not in leaders_by_color:
+            leaders_by_color[color] = []
+        leaders_by_color[color].append(leader)
+
+    # 4. Resolve conflicts for each color
+    for color, leaders in leaders_by_color.items():
+        if len(leaders) > 1:
+            # There is a conflict for this color
+            
+            # Find the players involved in this conflict
+            player1 = None
+            player2 = None
+            for p in players:
+                if leaders[0] in p.leaders.values():
+                    player1 = p
+                if leaders[1] in p.leaders.values():
+                    player2 = p
+            
+            if not player1 or not player2 or player1 == player2:
+                continue
+
+            # Determine attacker and defender
+            if player1 == placing_player:
+                attacker = player1
+                defender = player2
+                attacker_leader = leaders[0] if leaders[0] in player1.leaders.values() else leaders[1]
+                defender_leader = leaders[0] if leaders[0] in player2.leaders.values() else leaders[1]
+            else:
+                attacker = player2
+                defender = player1
+                attacker_leader = leaders[0] if leaders[0] in player2.leaders.values() else leaders[1]
+                defender_leader = leaders[0] if leaders[0] in player1.leaders.values() else leaders[1]
+
+            # 5. Count tiles
+            attacker_tiles = 0
+            defender_tiles = 0
+
+            # Find the kingdoms of the attacker and defender
+            attacker_kingdom = None
+            defender_kingdom = None
+            for k in adjacent_kingdoms:
+                leader_grid_x = (attacker_leader.rect.x - config.board_left_x) // config.tile_size
+                leader_grid_y = (attacker_leader.rect.y - config.board_top_y) // config.tile_size
+                if (leader_grid_x, leader_grid_y) in get_leader_adjacent_squares(k):
+                    attacker_kingdom = k
+                
+                leader_grid_x = (defender_leader.rect.x - config.board_left_x) // config.tile_size
+                leader_grid_y = (defender_leader.rect.y - config.board_top_y) // config.tile_size
+                if (leader_grid_x, leader_grid_y) in get_leader_adjacent_squares(k):
+                    defender_kingdom = k
+
+            if attacker_kingdom:
+                for kx, ky in attacker_kingdom:
+                    tile = get_tile_at(kx, ky, players, board_tiles, board_monuments)
+                    if tile and get_tile_color(tile) == color:
+                        attacker_tiles += 1
+            
+            if defender_kingdom:
+                for kx, ky in defender_kingdom:
+                    tile = get_tile_at(kx, ky, players, board_tiles, board_monuments)
+                    if tile and get_tile_color(tile) == color:
+                        defender_tiles += 1
+            
+            # 6. Add committed tiles
+            attacker_tiles += committed_tiles.get(attacker.name, 0)
+            defender_tiles += committed_tiles.get(defender.name, 0)
+
+            # 7. Determine winner and resolve
+            if attacker_tiles > defender_tiles:
+                winner = attacker
+                loser = defender
+                loser_leader = defender_leader
+                loser_kingdom = defender_kingdom
+            else: # Defender wins ties
+                winner = defender
+                loser = attacker
+                loser_leader = attacker_leader
+                loser_kingdom = attacker_kingdom
+
+            # Winner gets points, loser's leader and tiles of that color are removed
+            points = 0
+            if loser_kingdom:
+                # Create a copy of the kingdom to avoid issues with removing tiles while iterating
+                loser_kingdom_copy = list(loser_kingdom)
+                for kx, ky in loser_kingdom_copy:
+                    tile = get_tile_at(kx, ky, players, board_tiles, board_monuments)
+                    if tile and get_tile_color(tile) == color:
+                        points += 1
+                        remove_tile_at(kx, ky, players, board_tiles)
+            
+            winner.score[color] += points
+            loser.reset_leader(loser_leader.tile_type.split('_')[0])
+
+    return None, None
+
+
+
+

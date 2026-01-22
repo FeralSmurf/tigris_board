@@ -1,8 +1,16 @@
 import pygame
+from enum import Enum, auto
 import sys
 from config import *
 from assets import monument_with_treasure
 from game_objects import Player, Tile, create_monuments
+
+class GameState(Enum):
+    PLAYING = auto()
+    REVOLT = auto()
+    WAR = auto()
+    AWAITING_MONUMENT_CHOICE = auto()
+    GAME_OVER = auto()
 from game_logic import (
     create_tile_bag,
     snap_to_grid,
@@ -13,6 +21,9 @@ from game_logic import (
     end_turn,
     check_for_monument,
     remove_tile_at,
+    check_for_conflict,
+    resolve_revolt,
+    resolve_war,
 )
 from drawing import (
     draw_board,
@@ -27,6 +38,7 @@ from ui import (
     draw_end_turn_button,
     draw_replace_button,
     handle_monument_choice,
+    draw_commit_button,
 )
 
 def calculate_winner(players):
@@ -75,10 +87,13 @@ def main():
     discard_pile = []
     tiles_marked_for_discard = []
     board_monuments = []
-    game_state = 'GAME'
+    game_state = GameState.PLAYING
     monument_data = None
     monument_choice_rects = []
     winner = None
+    committed_tiles = {player1.name: 0, player2.name: 0}
+    conflict_protagonists = {}
+    tiles_for_conflict = []
 
     for (x, y) in monument_with_treasure_tiles:
         monument_tile = Tile("monument", monument_with_treasure, has_treasure=True)
@@ -107,7 +122,7 @@ def main():
     while True:
         mouse_pos = pygame.mouse.get_pos()
 
-        if game_state == 'GAME_OVER':
+        if game_state == GameState.GAME_OVER:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -115,7 +130,7 @@ def main():
             
             draw_board(screen)
             draw_player_areas(screen)
-            draw_pieces(screen, board_tiles, players, board_monuments)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
             draw_scoreboard(screen, players, current_player_index)
 
             if winner:
@@ -128,25 +143,19 @@ def main():
             pygame.display.flip()
             continue
         
-        if game_state == 'AWAITING_MONUMENT_CHOICE':
+        if game_state == GameState.AWAITING_MONUMENT_CHOICE:
             monument_pos, monument_color = monument_data
             
             # Filter monuments
             possible_monuments = []
-            if monument_color == 'black':
-                # Special rule for black tiles
-                for monument in available_monuments:
-                    if monument_color in monument.colors and monument.colors[0] != 'black':
-                        possible_monuments.append(monument)
-            else:
-                for monument in available_monuments:
-                    if monument_color in monument.colors:
-                        possible_monuments.append(monument)
+            for monument in available_monuments:
+                if monument_color in monument.colors:
+                    possible_monuments.append(monument)
             
             if not possible_monuments:
                 warning_message = "No valid monuments available to place."
                 warning_message_timer = 120
-                game_state = 'GAME'
+                game_state = GameState.PLAYING
                 monument_data = None
                 continue
             
@@ -174,15 +183,137 @@ def main():
                             for dy in range(2):
                                 remove_tile_at(monument_x + dx, monument_y + dy, players, board_tiles)
                         
-                        game_state = 'GAME'
+                        game_state = GameState.PLAYING
                         monument_data = None
             
             draw_board(screen)
             draw_player_areas(screen)
-            draw_pieces(screen, board_tiles, players, board_monuments)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
             monument_choice_rects = draw_monument_choices(screen, possible_monuments)
             pygame.display.flip()
             continue
+
+        if game_state == GameState.REVOLT:
+            draw_commit_button(screen, mouse_pos)
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    commit_button_rect = pygame.Rect(commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    if commit_button_rect.collidepoint(mouse_pos):
+                        attacker_leader = conflict_protagonists['attacker']
+                        result = resolve_revolt(attacker_leader, players, board_tiles, board_monuments, committed_tiles)
+                        if result:
+                            winner, loser = result
+                            if winner:
+                                warning_message = f"{winner.name} wins the revolt!"
+                                warning_message_timer = 300
+                        else:
+                            warning_message = "Revolt resolution failed unexpectedly."
+                            warning_message_timer = 300
+                        
+                        # Remove committed tiles from hand
+                        for p in players:
+                            for tile in tiles_for_conflict:
+                                if tile in p.hand:
+                                    p.hand.remove(tile)
+
+                        game_state = GameState.PLAYING
+                        committed_tiles = {player1.name: 0, player2.name: 0}
+                        conflict_protagonists = {}
+                        tiles_for_conflict.clear()
+
+                    # Allow players to select temple tiles from their hand
+                    current_player = players[current_player_index]
+                    for tile in current_player.hand:
+                        if tile.rect.collidepoint(mouse_pos) and tile.tile_type == 'monument':
+                            if tile in tiles_for_conflict:
+                                tiles_for_conflict.remove(tile)
+                                committed_tiles[current_player.name] -= 1
+                            else:
+                                tiles_for_conflict.append(tile)
+                                committed_tiles[current_player.name] += 1
+            
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
+            draw_scoreboard(screen, players, current_player_index)
+            draw_commit_button(screen, mouse_pos)
+            
+            if warning_message_timer > 0:
+                draw_warning_message(screen, warning_message)
+                warning_message_timer -= 1
+            else:
+                warning_message = ""
+            
+            pygame.display.flip()
+            continue
+
+        if game_state == GameState.WAR:
+            draw_commit_button(screen, mouse_pos)
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    commit_button_rect = pygame.Rect(commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    if commit_button_rect.collidepoint(mouse_pos):
+                        placing_player = players[current_player_index]
+                        placed_tile = conflict_protagonists['tile']
+                        result = resolve_war(placing_player, placed_tile, players, board_tiles, board_monuments, committed_tiles)
+                        if result:
+                            winner, loser = result
+                            if winner:
+                                warning_message = f"{winner.name} wins the war!"
+                                warning_message_timer = 120
+                        else:
+                            warning_message = "War resolution failed unexpectedly."
+                            warning_message_timer = 120
+                        
+                        # Remove committed tiles from hand
+                        for p in players:
+                            for tile in tiles_for_conflict:
+                                if tile in p.hand:
+                                    p.hand.remove(tile)
+
+                        game_state = GameState.PLAYING
+                        committed_tiles = {player1.name: 0, player2.name: 0}
+                        conflict_protagonists = {}
+                        tiles_for_conflict.clear()
+
+                    # Allow players to select tiles from their hand of the same color as the conflict
+                    current_player = players[current_player_index]
+                    if not conflict_protagonists or not conflict_protagonists['colors']:
+                        continue
+                    conflict_color = conflict_protagonists['colors'][0]
+                    for tile in current_player.hand:
+                        if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) == conflict_color:
+                            if tile in tiles_for_conflict:
+                                tiles_for_conflict.remove(tile)
+                                committed_tiles[current_player.name] -= 1
+                            else:
+                                tiles_for_conflict.append(tile)
+                                committed_tiles[current_player.name] += 1
+            
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
+            draw_scoreboard(screen, players, current_player_index)
+            draw_commit_button(screen, mouse_pos)
+            
+            if warning_message_timer > 0:
+                draw_warning_message(screen, warning_message)
+                warning_message_timer -= 1
+            else:
+                warning_message = ""
+            
+            pygame.display.flip()
+            continue
+
+
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -198,9 +329,9 @@ def main():
                             warning_message_timer = 120
                         if game_over:
                             winner = calculate_winner(players)
-                            game_state = 'GAME_OVER'
+                            game_state = GameState.GAME_OVER
                         elif monument_pos:
-                            game_state = 'AWAITING_MONUMENT_CHOICE'
+                            game_state = GameState.AWAITING_MONUMENT_CHOICE
                             monument_data = (monument_pos, monument_color)
                         tiles_marked_for_discard.clear()
                         continue
@@ -218,7 +349,7 @@ def main():
                                 warning_message = f"{current_player.name} cannot draw enough tiles from the bag!"
                                 warning_message_timer = 120
                                 winner = calculate_winner(players)
-                                game_state = 'GAME_OVER'
+                                game_state = GameState.GAME_OVER
                             tiles_marked_for_discard.clear()
                             if actions_taken >= 2:
                                 current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
@@ -227,9 +358,9 @@ def main():
                                     warning_message_timer = 120
                                 if game_over:
                                     winner = calculate_winner(players)
-                                    game_state = 'GAME_OVER'
+                                    game_state = GameState.GAME_OVER
                                 elif monument_pos:
-                                    game_state = 'AWAITING_MONUMENT_CHOICE'
+                                    game_state = GameState.AWAITING_MONUMENT_CHOICE
                                     monument_data = (monument_pos, monument_color)
                         elif actions_taken >= 2:
                             warning_message = "No more actions this turn!"
@@ -249,18 +380,22 @@ def main():
                             continue
 
                         current_player = players[current_player_index]
-                        for color, leader in current_player.leaders.items():
-                            if leader.rect.collidepoint(mouse_pos):
+
+                        # Prioritize dragging tiles from hand
+                        for tile in current_player.hand:
+                            if tile.rect.collidepoint(mouse_pos):
                                 save_previous_positions(players, previous_leader_positions, previous_hand_positions)
-                                dragging_leader = leader
-                                original_drag_pos = leader.rect.copy()
+                                dragging_tile = tile
+                                original_drag_pos = tile.rect.copy()
                                 break
-                        if not dragging_leader:
-                            for tile in current_player.hand:
-                                if tile.rect.collidepoint(mouse_pos):
+
+                        # If no tile was grabbed, check for leaders
+                        if not dragging_tile:
+                            for color, leader in current_player.leaders.items():
+                                if leader.rect.collidepoint(mouse_pos):
                                     save_previous_positions(players, previous_leader_positions, previous_hand_positions)
-                                    dragging_tile = tile
-                                    original_drag_pos = tile.rect.copy()
+                                    dragging_leader = leader
+                                    original_drag_pos = leader.rect.copy()
                                     break
                     else:
                         warning_message = "No more actions this turn!"
@@ -274,6 +409,13 @@ def main():
                             dragging_leader.rect.topleft = new_pos_tuple
                             if dragging_leader.rect.topleft != original_drag_pos.topleft:
                                 actions_taken += 1
+                                conflict, conflict_colors = check_for_conflict(dragging_leader, new_pos_tuple, players, board_tiles, board_monuments)
+                                if conflict == 'REVOLT':
+                                    game_state = GameState.REVOLT
+                                    warning_message = "REVOLT!"
+                                    warning_message_timer = 120
+                                    conflict_protagonists['attacker'] = dragging_leader
+                                    conflict_protagonists['colors'] = conflict_colors
                         else:
                             dragging_leader.rect.topleft = original_drag_pos.topleft
                             warning_message = "Invalid move!"
@@ -287,9 +429,9 @@ def main():
                                 warning_message_timer = 120
                             if game_over:
                                 winner = calculate_winner(players)
-                                game_state = 'GAME_OVER'
+                                game_state = GameState.GAME_OVER
                             elif monument_pos:
-                                game_state = 'AWAITING_MONUMENT_CHOICE'
+                                game_state = GameState.AWAITING_MONUMENT_CHOICE
                                 monument_data = (monument_pos, monument_color)                    
                     elif dragging_tile:
                         current_player = players[current_player_index]
@@ -313,12 +455,20 @@ def main():
                                 
                                 update_score(dragging_tile, players, board_tiles, board_monuments)
 
+                                conflict, conflict_colors = check_for_conflict(dragging_tile, new_pos_tuple, players, board_tiles, board_monuments)
+                                if conflict == 'WAR':
+                                    game_state = GameState.WAR
+                                    warning_message = "WAR!"
+                                    warning_message_timer = 300
+                                    conflict_protagonists['tile'] = dragging_tile
+                                    conflict_protagonists['colors'] = conflict_colors
+
                                 grid_x = (new_pos_tuple[0] - board_left_x) // tile_size
                                 grid_y = (new_pos_tuple[1] - board_top_y) // tile_size
                                 
                                 monument_pos, monument_color = check_for_monument(grid_x, grid_y, players, board_tiles, board_monuments)
                                 if monument_pos:
-                                    game_state = 'AWAITING_MONUMENT_CHOICE'
+                                    game_state = GameState.AWAITING_MONUMENT_CHOICE
                                     monument_data = (monument_pos, monument_color)
                             else:
                                 dragging_tile.rect.topleft = original_drag_pos.topleft
@@ -333,9 +483,9 @@ def main():
                                 warning_message_timer = 120
                             if game_over:
                                 winner = calculate_winner(players)
-                                game_state = 'GAME_OVER'
+                                game_state = GameState.GAME_OVER
                             elif monument_pos:
-                                game_state = 'AWAITING_MONUMENT_CHOICE'
+                                game_state = GameState.AWAITING_MONUMENT_CHOICE
                                 monument_data = (monument_pos, monument_color)
 
             elif event.type == pygame.MOUSEMOTION:
@@ -351,7 +501,7 @@ def main():
         draw_end_turn_button(screen, mouse_pos)
         draw_replace_button(screen, mouse_pos)
         
-        draw_pieces(screen, board_tiles, players, board_monuments)
+        draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
         draw_scoreboard(screen, players, current_player_index)
 
         if warning_message_timer > 0:
