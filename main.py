@@ -2,6 +2,7 @@ import pygame
 from enum import Enum, auto
 import sys
 from config import *
+import config
 from assets import monument_with_treasure
 from game_objects import Player, Tile, create_monuments
 
@@ -24,6 +25,7 @@ from game_logic import (
     check_for_conflict,
     resolve_revolt,
     resolve_war,
+    get_players_in_conflict,
 )
 from drawing import (
     draw_board,
@@ -94,6 +96,9 @@ def main():
     committed_tiles = {player1.name: 0, player2.name: 0}
     conflict_protagonists = {}
     tiles_for_conflict = []
+    player_committed = {player1.name: False, player2.name: False}
+    conflict_resolved = False
+    players_in_conflict = []
 
     for (x, y) in monument_with_treasure_tiles:
         monument_tile = Tile("monument", monument_with_treasure, has_treasure=True)
@@ -194,53 +199,67 @@ def main():
             continue
 
         if game_state == GameState.REVOLT:
-            draw_commit_button(screen, mouse_pos)
+            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    commit_button_rect = pygame.Rect(commit_button_x, commit_button_y, commit_button_width, commit_button_height)
-                    if commit_button_rect.collidepoint(mouse_pos):
-                        attacker_leader = conflict_protagonists['attacker']
-                        result = resolve_revolt(attacker_leader, players, board_tiles, board_monuments, committed_tiles)
-                        if result:
-                            winner, loser = result
-                            if winner:
-                                warning_message = f"{winner.name} wins the revolt!"
-                                warning_message_timer = 300
-                        else:
-                            warning_message = "Revolt resolution failed unexpectedly."
-                            warning_message_timer = 300
+                    player1_commit_button_rect = pygame.Rect(player1_commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    player2_commit_button_rect = pygame.Rect(player2_commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    
+                    committing_player_action_taken = False
+                    committing_player = None
+
+                    if player1_commit_button_rect.collidepoint(mouse_pos):
+                        committing_player = players[0]
+                        committing_player_action_taken = True
+                    elif player2_commit_button_rect.collidepoint(mouse_pos):
+                        committing_player = players[1]
+                        committing_player_action_taken = True
+
+                    if committing_player_action_taken:
+                        if committing_player in players_in_conflict:
+                            player_committed[committing_player.name] = True
+
+                        # Check if all players in conflict have committed
+                        all_committed = True
+                        for player in players_in_conflict:
+                            if not player_committed.get(player.name):
+                                all_committed = False
+                                break
                         
-                        # Remove committed tiles from hand
-                        for p in players:
-                            for tile in tiles_for_conflict:
-                                if tile in p.hand:
-                                    p.hand.remove(tile)
-
-                        game_state = GameState.PLAYING
-                        committed_tiles = {player1.name: 0, player2.name: 0}
-                        conflict_protagonists = {}
-                        tiles_for_conflict.clear()
-
-                    # Allow players to select temple tiles from their hand
-                    current_player = players[current_player_index]
-                    for tile in current_player.hand:
-                        if tile.rect.collidepoint(mouse_pos) and tile.tile_type == 'monument':
-                            if tile in tiles_for_conflict:
-                                tiles_for_conflict.remove(tile)
-                                committed_tiles[current_player.name] -= 1
+                        if all_committed:
+                            attacker_leader = conflict_protagonists['attacker']
+                            result = resolve_revolt(attacker_leader, players, board_tiles, board_monuments, committed_tiles)
+                            if result:
+                                winner, loser = result
+                                if winner:
+                                    warning_message = f"{winner.name} wins the revolt!"
+                                    warning_message_timer = 300
                             else:
-                                tiles_for_conflict.append(tile)
-                                committed_tiles[current_player.name] += 1
-            
-            draw_board(screen)
-            draw_player_areas(screen)
+                                warning_message = "Revolt resolution failed unexpectedly."
+                                warning_message_timer = 300
+                            
+                            # Remove committed tiles from hand
+                            for p in players:
+                                for tile in tiles_for_conflict:
+                                    if tile in p.hand:
+                                        p.hand.remove(tile)
+
+                            game_state = GameState.PLAYING
+                            committed_tiles = {player1.name: 0, player2.name: 0}
+                            conflict_protagonists = {}
+                            tiles_for_conflict.clear()
+                            player_committed = {player1.name: False, player2.name: False}
+                            players_in_conflict = []
+                        else:
+                            warning_message = f"{committing_player.name} committed. Waiting for other players."
+                            warning_message_timer = 300
             draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
             draw_scoreboard(screen, players, current_player_index)
-            draw_commit_button(screen, mouse_pos)
+            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             if warning_message_timer > 0:
                 draw_warning_message(screen, warning_message)
@@ -252,57 +271,91 @@ def main():
             continue
 
         if game_state == GameState.WAR:
-            draw_commit_button(screen, mouse_pos)
+            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    commit_button_rect = pygame.Rect(commit_button_x, commit_button_y, commit_button_width, commit_button_height)
-                    if commit_button_rect.collidepoint(mouse_pos):
-                        placing_player = players[current_player_index]
-                        placed_tile = conflict_protagonists['tile']
-                        result = resolve_war(placing_player, placed_tile, players, board_tiles, board_monuments, committed_tiles)
-                        if result:
-                            winner, loser = result
-                            if winner:
-                                warning_message = f"{winner.name} wins the war!"
-                                warning_message_timer = 120
-                        else:
-                            warning_message = "War resolution failed unexpectedly."
-                            warning_message_timer = 120
+                    player1_commit_button_rect = pygame.Rect(player1_commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    player2_commit_button_rect = pygame.Rect(player2_commit_button_x, commit_button_y, commit_button_width, commit_button_height)
+                    
+                    committing_player_action_taken = False
+                    committing_player = None
+
+                    if player1_commit_button_rect.collidepoint(mouse_pos):
+                        committing_player = players[0]
+                        committing_player_action_taken = True
+                    elif player2_commit_button_rect.collidepoint(mouse_pos):
+                        committing_player = players[1]
+                        committing_player_action_taken = True
+
+                    if committing_player_action_taken:
+                        if committing_player in players_in_conflict:
+                            player_committed[committing_player.name] = True
                         
-                        # Remove committed tiles from hand
-                        for p in players:
-                            for tile in tiles_for_conflict:
-                                if tile in p.hand:
-                                    p.hand.remove(tile)
-
-                        game_state = GameState.PLAYING
-                        committed_tiles = {player1.name: 0, player2.name: 0}
-                        conflict_protagonists = {}
-                        tiles_for_conflict.clear()
-
-                    # Allow players to select tiles from their hand of the same color as the conflict
-                    current_player = players[current_player_index]
-                    if not conflict_protagonists or not conflict_protagonists['colors']:
-                        continue
-                    conflict_color = conflict_protagonists['colors'][0]
-                    for tile in current_player.hand:
-                        if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) == conflict_color:
-                            if tile in tiles_for_conflict:
-                                tiles_for_conflict.remove(tile)
-                                committed_tiles[current_player.name] -= 1
+                        # Check if all players in conflict have committed
+                        all_committed = True
+                        for player in players_in_conflict:
+                            if not player_committed.get(player.name):
+                                all_committed = False
+                                break
+                        
+                        if all_committed:
+                            placing_player = players[current_player_index]
+                            placed_tile = conflict_protagonists['tile']
+                            result = resolve_war(placing_player, placed_tile, players, board_tiles, board_monuments, committed_tiles)
+                            if result:
+                                winner, loser = result
+                                if winner:
+                                    warning_message = f"{winner.name} wins the war!"
+                                    warning_message_timer = 120
                             else:
-                                tiles_for_conflict.append(tile)
-                                committed_tiles[current_player.name] += 1
+                                warning_message = "War resolution failed unexpectedly."
+                                warning_message_timer = 120
+                            
+                            # Remove committed tiles from hand
+                            for p in players:
+                                for tile in tiles_for_conflict:
+                                    if tile in p.hand:
+                                        p.hand.remove(tile)
+
+                            game_state = GameState.PLAYING
+                            committed_tiles = {player1.name: 0, player2.name: 0}
+                            conflict_protagonists = {}
+                            tiles_for_conflict.clear()
+                            player_committed = {player1.name: False, player2.name: False}
+                            players_in_conflict = []
+                        else:
+                            warning_message = f"{committing_player.name} committed. Waiting for other players."
+                            warning_message_timer = 300
+                    else: # If no commit button was clicked, check for tile selection
+                        # Allow players to select tiles from their hand of the same color as the conflict
+                        if not conflict_protagonists or not conflict_protagonists['colors']:
+                            pass # No conflict protagonists or colors, so no tiles to select.
+                        else:
+                            conflict_color = conflict_protagonists['colors'][0]
+                            tile_selected = False
+                            for player in players:
+                                for tile in player.hand:
+                                    if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) == conflict_color:
+                                        if tile in tiles_for_conflict:
+                                            tiles_for_conflict.remove(tile)
+                                            committed_tiles[player.name] -= 1
+                                        else:
+                                            tiles_for_conflict.append(tile)
+                                            committed_tiles[player.name] += 1
+                                        tile_selected = True
+                                        break
+                                if tile_selected:
+                                    break
             
             draw_board(screen)
             draw_player_areas(screen)
             draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
             draw_scoreboard(screen, players, current_player_index)
-            draw_commit_button(screen, mouse_pos)
+            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             if warning_message_timer > 0:
                 draw_warning_message(screen, warning_message)
@@ -330,8 +383,10 @@ def main():
                         if game_over:
                             winner = calculate_winner(players)
                             game_state = GameState.GAME_OVER
+                            print(f"\nGAME STATE -> GAME_OVER")
                         elif monument_pos:
                             game_state = GameState.AWAITING_MONUMENT_CHOICE
+                            print(f"\nGAME STATE -> AWAITING_MONUMENT_CHOICE")
                             monument_data = (monument_pos, monument_color)
                         tiles_marked_for_discard.clear()
                         continue
@@ -359,8 +414,10 @@ def main():
                                 if game_over:
                                     winner = calculate_winner(players)
                                     game_state = GameState.GAME_OVER
+                                    print(f"\nGAME STATE -> GAME_OVER")
                                 elif monument_pos:
                                     game_state = GameState.AWAITING_MONUMENT_CHOICE
+                                    print(f"\nGAME STATE -> AWAITING_MONUMENT_CHOICE")
                                     monument_data = (monument_pos, monument_color)
                         elif actions_taken >= 2:
                             warning_message = "No more actions this turn!"
@@ -411,28 +468,29 @@ def main():
                                 actions_taken += 1
                                 conflict, conflict_colors = check_for_conflict(dragging_leader, new_pos_tuple, players, board_tiles, board_monuments)
                                 if conflict == 'REVOLT':
-                                    game_state = GameState.REVOLT
-                                    warning_message = "REVOLT!"
-                                    warning_message_timer = 120
-                                    conflict_protagonists['attacker'] = dragging_leader
-                                    conflict_protagonists['colors'] = conflict_colors
+                                                                         game_state = GameState.REVOLT
+                                                                         print(f"\nGAME STATE -> REVOLT")
+                                                                         warning_message = "REVOLT!"
+                                                                         warning_message_timer = 120
+                                                                         conflict_protagonists['attacker'] = dragging_leader
+                                                                         conflict_protagonists['colors'] = conflict_colors
+                                                                         players_in_conflict = get_players_in_conflict(
+                                                                             'REVOLT', conflict_protagonists, players, board_tiles, board_monuments
+                                                                         )                        
                         else:
                             dragging_leader.rect.topleft = original_drag_pos.topleft
                             warning_message = "Invalid move!"
                             warning_message_timer = 120
-                        dragging_leader = None
-                        original_drag_pos = None
-                        if actions_taken >= 2:
-                            current_player_index, actions_taken, board_tiles, monument_pos, monument_color, game_over, message = end_turn(current_player_index, players, tile_bag, board_tiles, board_monuments)
-                            if message:
-                                warning_message = message
-                                warning_message_timer = 120
                             if game_over:
                                 winner = calculate_winner(players)
                                 game_state = GameState.GAME_OVER
+                                print(f"\nGAME STATE -> GAME_OVER")
                             elif monument_pos:
                                 game_state = GameState.AWAITING_MONUMENT_CHOICE
+                                print(f"\nGAME STATE -> AWAITING_MONUMENT_CHOICE")
                                 monument_data = (monument_pos, monument_color)                    
+                        dragging_leader = None
+                        original_drag_pos = None
                     elif dragging_tile:
                         current_player = players[current_player_index]
                         current_discard_area = player1_discard_area if current_player == player1 else player2_discard_area
@@ -445,6 +503,7 @@ def main():
                             
                             new_pos_tuple = snap_to_grid(dragging_tile.rect.center)
                             if is_valid_move(dragging_tile, new_pos_tuple, players, board_tiles, board_monuments):
+                                print(f"\nACTION: {players[current_player_index].name} places tile {dragging_tile.tile_type} at {new_pos_tuple}")
                                 dragging_tile.rect.topleft = new_pos_tuple
                                 if dragging_tile.rect.topleft != original_drag_pos.topleft:
                                     actions_taken += 1
@@ -457,12 +516,15 @@ def main():
 
                                 conflict, conflict_colors = check_for_conflict(dragging_tile, new_pos_tuple, players, board_tiles, board_monuments)
                                 if conflict == 'WAR':
-                                    game_state = GameState.WAR
-                                    warning_message = "WAR!"
-                                    warning_message_timer = 300
-                                    conflict_protagonists['tile'] = dragging_tile
-                                    conflict_protagonists['colors'] = conflict_colors
-
+                                                                         game_state = GameState.WAR
+                                                                         print(f"\nGAME STATE -> WAR")
+                                                                         warning_message = "WAR!"
+                                                                         warning_message_timer = 300
+                                                                         conflict_protagonists['tile'] = dragging_tile
+                                                                         conflict_protagonists['colors'] = conflict_colors
+                                                                         players_in_conflict = get_players_in_conflict(
+                                                                             'WAR', conflict_protagonists, players, board_tiles, board_monuments
+                                                                         )
                                 grid_x = (new_pos_tuple[0] - board_left_x) // tile_size
                                 grid_y = (new_pos_tuple[1] - board_top_y) // tile_size
                                 
@@ -484,8 +546,10 @@ def main():
                             if game_over:
                                 winner = calculate_winner(players)
                                 game_state = GameState.GAME_OVER
+                                print(f"\nGAME STATE -> GAME_OVER")
                             elif monument_pos:
                                 game_state = GameState.AWAITING_MONUMENT_CHOICE
+                                print(f"\nGAME STATE -> AWAITING_MONUMENT_CHOICE")
                                 monument_data = (monument_pos, monument_color)
 
             elif event.type == pygame.MOUSEMOTION:

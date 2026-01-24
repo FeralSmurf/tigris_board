@@ -84,7 +84,8 @@ replace_button_hover_color = (180, 180, 180)
 
 commit_button_width = 120
 commit_button_height = 50
-commit_button_x = window_width - commit_button_width - 20
+player1_commit_button_x = 20
+player2_commit_button_x = window_width - commit_button_width - 20
 commit_button_y = 200
 commit_button_color = (200, 200, 200)
 commit_button_hover_color = (180, 180, 180)

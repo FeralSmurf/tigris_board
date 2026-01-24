@@ -37,12 +37,22 @@ def handle_monument_choice(mouse_pos, monument_rects):
             return i
     return None
 
-def draw_commit_button(screen, mouse_pos):
-    commit_button_rect = pygame.Rect(config.commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
-    commit_color = config.commit_button_hover_color if commit_button_rect.collidepoint(mouse_pos) else config.commit_button_color
-    pygame.draw.rect(screen, commit_color, commit_button_rect)
+def draw_commit_button(screen, mouse_pos, player1_x, player2_x, y, width, height):
+    player1_commit_button_rect = pygame.Rect(player1_x, y, width, height)
+    player2_commit_button_rect = pygame.Rect(player2_x, y, width, height)
 
-    commit_text = config.button_font.render("Commit", True, config.black)
-    commit_text_rect = commit_text.get_rect(center=commit_button_rect.center)
-    screen.blit(commit_text, commit_text_rect)
-    return commit_button_rect
+    # Draw Player 1's commit button
+    player1_commit_color = config.commit_button_hover_color if player1_commit_button_rect.collidepoint(mouse_pos) else config.commit_button_color
+    pygame.draw.rect(screen, player1_commit_color, player1_commit_button_rect)
+    player1_commit_text = config.button_font.render("Commit P1", True, config.black)
+    player1_commit_text_rect = player1_commit_text.get_rect(center=player1_commit_button_rect.center)
+    screen.blit(player1_commit_text, player1_commit_text_rect)
+
+    # Draw Player 2's commit button
+    player2_commit_color = config.commit_button_hover_color if player2_commit_button_rect.collidepoint(mouse_pos) else config.commit_button_color
+    pygame.draw.rect(screen, player2_commit_color, player2_commit_button_rect)
+    player2_commit_text = config.button_font.render("Commit P2", True, config.black)
+    player2_commit_text_rect = player2_commit_text.get_rect(center=player2_commit_button_rect.center)
+    screen.blit(player2_commit_text, player2_commit_text_rect)
+
+    return player1_commit_button_rect, player2_commit_button_rect
