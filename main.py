@@ -257,6 +257,23 @@ def main():
                         else:
                             warning_message = f"{committing_player.name} committed. Waiting for other players."
                             warning_message_timer = 300
+                    else: # If no commit button was clicked, check for tile selection
+                        # Allow players to select monument tiles from their hand
+                        tile_selected = False
+                        for player in players:
+                            if player in players_in_conflict and not player_committed.get(player.name):
+                                for tile in player.hand:
+                                    if tile.rect.collidepoint(mouse_pos) and tile.tile_type == 'monument':
+                                        if tile in tiles_for_conflict:
+                                            tiles_for_conflict.remove(tile)
+                                            committed_tiles[player.name] -= 1
+                                        else:
+                                            tiles_for_conflict.append(tile)
+                                            committed_tiles[player.name] += 1
+                                        tile_selected = True
+                                        break
+                                if tile_selected:
+                                    break
             draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
             draw_scoreboard(screen, players, current_player_index)
             draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
