@@ -199,6 +199,10 @@ def main():
             continue
 
         if game_state == GameState.REVOLT:
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
+            draw_scoreboard(screen, players, current_player_index)
             draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             for event in pygame.event.get():
@@ -274,9 +278,6 @@ def main():
                                         break
                                 if tile_selected:
                                     break
-            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
-            draw_scoreboard(screen, players, current_player_index)
-            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             if warning_message_timer > 0:
                 draw_warning_message(screen, warning_message)
@@ -288,6 +289,10 @@ def main():
             continue
 
         if game_state == GameState.WAR:
+            draw_board(screen)
+            draw_player_areas(screen)
+            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
+            draw_scoreboard(screen, players, current_player_index)
             draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             for event in pygame.event.get():
@@ -367,12 +372,6 @@ def main():
                                         break
                                 if tile_selected:
                                     break
-            
-            draw_board(screen)
-            draw_player_areas(screen)
-            draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict)
-            draw_scoreboard(screen, players, current_player_index)
-            draw_commit_button(screen, mouse_pos, config.player1_commit_button_x, config.player2_commit_button_x, config.commit_button_y, config.commit_button_width, config.commit_button_height)
             
             if warning_message_timer > 0:
                 draw_warning_message(screen, warning_message)
@@ -488,7 +487,7 @@ def main():
                                                                          game_state = GameState.REVOLT
                                                                          print(f"\nGAME STATE -> REVOLT")
                                                                          warning_message = "REVOLT!"
-                                                                         warning_message_timer = 120
+                                                                         warning_message_timer = 500
                                                                          conflict_protagonists['attacker'] = dragging_leader
                                                                          conflict_protagonists['colors'] = conflict_colors
                                                                          players_in_conflict = get_players_in_conflict(
@@ -529,19 +528,22 @@ def main():
                                 current_player.hand.remove(dragging_tile)
                                 board_tiles.append(dragging_tile)
                                 
-                                update_score(dragging_tile, players, board_tiles, board_monuments)
-
                                 conflict, conflict_colors = check_for_conflict(dragging_tile, new_pos_tuple, players, board_tiles, board_monuments)
+                                
                                 if conflict == 'WAR':
-                                                                         game_state = GameState.WAR
-                                                                         print(f"\nGAME STATE -> WAR")
-                                                                         warning_message = "WAR!"
-                                                                         warning_message_timer = 300
-                                                                         conflict_protagonists['tile'] = dragging_tile
-                                                                         conflict_protagonists['colors'] = conflict_colors
-                                                                         players_in_conflict = get_players_in_conflict(
-                                                                             'WAR', conflict_protagonists, players, board_tiles, board_monuments
-                                                                         )
+                                    game_state = GameState.WAR
+                                    print(f"\nGAME STATE -> WAR")
+                                    warning_message = "WAR!"
+                                    warning_message_timer = 500
+                                    conflict_protagonists['tile'] = dragging_tile
+                                    conflict_protagonists['colors'] = conflict_colors
+                                    players_in_conflict = get_players_in_conflict(
+                                        'WAR', conflict_protagonists, players, board_tiles, board_monuments
+                                    )
+                                else:
+                                    # No conflict, so update score
+                                    update_score(dragging_tile, players, board_tiles, board_monuments)
+
                                 grid_x = (new_pos_tuple[0] - board_left_x) // tile_size
                                 grid_y = (new_pos_tuple[1] - board_top_y) // tile_size
                                 

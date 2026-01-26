@@ -18,6 +18,16 @@ leader_tokens = {
 for color in leader_tokens:
     leader_tokens[color] = pygame.transform.scale(leader_tokens[color], (tile_size, tile_size))
 
+leader_tokens_p2 = {
+    "black": pygame.image.load("black_leader_2.bmp"),
+    "blue": pygame.image.load("blue_leader_2.bmp"),
+    "red": pygame.image.load("red_leader_2.bmp"),
+    "green": pygame.image.load("green_leader_2.bmp"),
+}
+
+for color in leader_tokens_p2:
+    leader_tokens_p2[color] = pygame.transform.scale(leader_tokens_p2[color], (tile_size, tile_size))
+
 # Load and scale other tokens
 other_tokens = {
     "market": pygame.image.load("market.bmp"),

@@ -1,5 +1,5 @@
 import pygame
-from assets import leader_tokens, monument_images
+from assets import leader_tokens, leader_tokens_p2, monument_images
 from config import window_height, player_space_height, player_space_width
 
 class Tile:
@@ -16,18 +16,20 @@ class Player:
         self.hand = []
         self.monuments = []
         self.treasures = 0
-        self.leaders = {
-            "black": Tile("black_leader", leader_tokens["black"].copy()),
-            "blue": Tile("blue_leader", leader_tokens["blue"].copy()),
-            "red": Tile("red_leader", leader_tokens["red"].copy()),
-            "green": Tile("green_leader", leader_tokens["green"].copy()),
-        }
-
         if self.name == "Player 2":
-            for leader in self.leaders.values():
-                darken_surface = pygame.Surface(leader.image.get_size(), flags=pygame.SRCALPHA)
-                darken_surface.fill((0, 0, 0, 50))  # Black with 50 alpha
-                leader.image.blit(darken_surface, (0, 0))
+            self.leaders = {
+                "black": Tile("black_leader", leader_tokens_p2["black"].copy()),
+                "blue": Tile("blue_leader", leader_tokens_p2["blue"].copy()),
+                "red": Tile("red_leader", leader_tokens_p2["red"].copy()),
+                "green": Tile("green_leader", leader_tokens_p2["green"].copy()),
+            }
+        else:
+            self.leaders = {
+                "black": Tile("black_leader", leader_tokens["black"].copy()),
+                "blue": Tile("blue_leader", leader_tokens["blue"].copy()),
+                "red": Tile("red_leader", leader_tokens["red"].copy()),
+                "green": Tile("green_leader", leader_tokens["green"].copy()),
+            }
 
         self.player_space_x = player_space_x
         self.place_leaders()
