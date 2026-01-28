@@ -8,6 +8,7 @@ class Tile:
         self.image = image
         self.rect = self.image.get_rect()
         self.has_treasure = has_treasure
+        self.is_war_trigger = False
 
 class Player:
     def __init__(self, name, player_space_x):

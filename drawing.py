@@ -66,7 +66,12 @@ def draw_player_areas(screen):
 
 def draw_pieces(screen, board_tiles, players, board_monuments, tiles_for_conflict=[]):
     for tile in board_tiles:
-        screen.blit(tile.image, tile.rect)
+        if hasattr(tile, 'is_war_trigger') and tile.is_war_trigger:
+            dark_image = tile.image.copy()
+            dark_image.fill((128, 128, 128), special_flags=pygame.BLEND_RGB_MULT)
+            screen.blit(dark_image, tile.rect)
+        else:
+            screen.blit(tile.image, tile.rect)
     for monument in board_monuments:
         screen.blit(monument.image, monument.rect)
 

@@ -2,10 +2,10 @@ import pygame
 from config import tile_size
 
 # Load and scale monument with treasure image
-monument_with_treasure = pygame.image.load("temple_with_treasure.bmp")
-monument_with_treasure = pygame.transform.scale(monument_with_treasure, (tile_size, tile_size))
-monument_without_treasure = pygame.image.load("temple_without_treasure.bmp")
-monument_without_treasure = pygame.transform.scale(monument_without_treasure, (tile_size, tile_size))
+temple_with_treasure = pygame.image.load("temple_with_treasure.bmp")
+temple_with_treasure = pygame.transform.scale(temple_with_treasure, (tile_size, tile_size))
+temple_without_treasure = pygame.image.load("temple_without_treasure.bmp")
+temple_without_treasure = pygame.transform.scale(temple_without_treasure, (tile_size, tile_size))
 
 # Load and scale leader tokens
 leader_tokens = {
@@ -33,7 +33,7 @@ other_tokens = {
     "market": pygame.image.load("market.bmp"),
     "city": pygame.image.load("city.bmp"),
     "farm": pygame.image.load("farm.bmp"),
-    "monument": pygame.image.load("temple.bmp"),
+    "temple": pygame.image.load("temple.bmp"),
 }
 
 for token in other_tokens:

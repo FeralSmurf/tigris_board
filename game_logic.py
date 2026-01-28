@@ -1,13 +1,13 @@
 import random
 from game_objects import Tile, Monument
-from assets import other_tokens, monument_without_treasure
+from assets import other_tokens, temple_without_treasure
 import config
 
 def create_tile_bag():
     bag = []
     # Red (Temples): 57 tiles
     for _ in range(57):
-        bag.append(Tile("monument", other_tokens["monument"]))
+        bag.append(Tile("temple", other_tokens["temple"]))
     # Blue (Farms): 36 tiles
     for _ in range(36):
         bag.append(Tile("farm", other_tokens["farm"]))
@@ -162,7 +162,7 @@ def is_valid_move(piece, pos, players, board_tiles, board_monuments):
                 if adjacent_tile:
                     print(f"    -> Neighbor at ({nx},{ny}) is: {adjacent_tile.tile_type if hasattr(adjacent_tile, 'tile_type') else 'Monument type'}")
                 if (adjacent_tile and isinstance(adjacent_tile, Monument)) or \
-                   (adjacent_tile and isinstance(adjacent_tile, Tile) and adjacent_tile.tile_type == "monument"):
+                   (adjacent_tile and isinstance(adjacent_tile, Tile) and adjacent_tile.tile_type == "temple"):
                     is_adjacent_to_monument = True
                     print("    -> Valid: Adjacent to monument.")
                     break
@@ -355,7 +355,7 @@ def claim_treasures(players, board_tiles, board_monuments):
                 treasures_claimed = num_treasures_to_award
                 for i in range(num_treasures_to_award):
                     treasures_in_kingdom[i].has_treasure = False
-                    treasures_in_kingdom[i].image = monument_without_treasure
+                    treasures_in_kingdom[i].image = temple_without_treasure
     
     return player_who_claimed, treasures_claimed
 
@@ -462,6 +462,7 @@ def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
                     conflict_colors.append(color)
 
             if conflict_colors:
+                piece.is_war_trigger = True
                 return 'WAR', conflict_colors
 
     return None, None
@@ -522,7 +523,7 @@ def resolve_revolt(attacker_leader, players, board_tiles, board_monuments, commi
         nx, ny = attacker_grid_x + dx, attacker_grid_y + dy
         if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
             tile = get_tile_at(nx, ny, players, board_tiles, board_monuments)
-            if tile and isinstance(tile, Tile) and tile.tile_type == 'monument':
+            if tile and isinstance(tile, Tile) and tile.tile_type == 'temple':
                 attacker_temples += 1
 
     # Defender's adjacent temples
@@ -532,7 +533,7 @@ def resolve_revolt(attacker_leader, players, board_tiles, board_monuments, commi
         nx, ny = defender_grid_x + dx, defender_grid_y + dy
         if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
             tile = get_tile_at(nx, ny, players, board_tiles, board_monuments)
-            if tile and isinstance(tile, Tile) and tile.tile_type == 'monument':
+            if tile and isinstance(tile, Tile) and tile.tile_type == 'temple':
                 defender_temples += 1
     
     # Add committed tiles from hand

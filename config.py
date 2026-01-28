@@ -41,7 +41,7 @@ river_tiles = [
     (2, 6), (1, 6), (0, 6),
 ]
 
-monument_with_treasure_tiles = [
+temple_with_treasure_tiles = [
     (1, 1), (5, 2), (5, 9), (1, 7), (10, 0), (10, 10), (15, 1), (5, 2), (13, 4), (14, 8), (8, 6),
 ]
 
@@ -94,7 +94,7 @@ commit_button_hover_color = (180, 180, 180)
 tile_color_map = {
     "farm": "blue",
     "market": "green",
-    "monument": "red",
+    "temple": "red",
     "city": "black",
 }
 

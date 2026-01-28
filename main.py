@@ -3,7 +3,7 @@ from enum import Enum, auto
 import sys
 from config import *
 import config
-from assets import monument_with_treasure
+from assets import temple_with_treasure
 from game_objects import Player, Tile, create_monuments
 
 class GameState(Enum):
@@ -100,8 +100,8 @@ def main():
     conflict_resolved = False
     players_in_conflict = []
 
-    for (x, y) in monument_with_treasure_tiles:
-        monument_tile = Tile("monument", monument_with_treasure, has_treasure=True)
+    for (x, y) in temple_with_treasure_tiles:
+        monument_tile = Tile("temple", temple_with_treasure, has_treasure=True)
         monument_tile.rect.topleft = (
             board_left_x + x * tile_size,
             board_top_y + y * tile_size,
@@ -267,7 +267,7 @@ def main():
                         for player in players:
                             if player in players_in_conflict and not player_committed.get(player.name):
                                 for tile in player.hand:
-                                    if tile.rect.collidepoint(mouse_pos) and tile.tile_type == 'monument':
+                                    if tile.rect.collidepoint(mouse_pos) and tile.tile_type == 'temple':
                                         if tile in tiles_for_conflict:
                                             tiles_for_conflict.remove(tile)
                                             committed_tiles[player.name] -= 1
@@ -344,6 +344,7 @@ def main():
                                         p.hand.remove(tile)
 
                             game_state = GameState.PLAYING
+                            placed_tile.is_war_trigger = False
                             committed_tiles = {player1.name: 0, player2.name: 0}
                             conflict_protagonists = {}
                             tiles_for_conflict.clear()
