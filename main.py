@@ -357,11 +357,11 @@ def main():
                         if not conflict_protagonists or not conflict_protagonists['colors']:
                             pass # No conflict protagonists or colors, so no tiles to select.
                         else:
-                            conflict_color = conflict_protagonists['colors'][0]
+                            conflict_colors = conflict_protagonists['colors']
                             tile_selected = False
                             for player in players:
                                 for tile in player.hand:
-                                    if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) == conflict_color:
+                                    if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) in conflict_colors:
                                         if tile in tiles_for_conflict:
                                             tiles_for_conflict.remove(tile)
                                             committed_tiles[player.name] -= 1
