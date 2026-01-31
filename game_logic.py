@@ -103,10 +103,11 @@ def get_kingdom(grid_x, grid_y, players, board_tiles, board_monuments, ignore_pi
     start_tile = get_tile_at(grid_x, grid_y, players, board_tiles, board_monuments, ignore_piece)
     if not start_tile:
         return set()
-
-    kingdom_color = get_tile_color(start_tile)
-    if kingdom_color is None:
-        return set()
+    
+    # It doesn't matter the color of the tiles. Any group of contiguous tiles is a kingdom
+    # kingdom_color = get_tile_color(start_tile)
+    # if kingdom_color is None:
+    #     return set()
 
     kingdom = set()
     visited = set()
@@ -122,7 +123,7 @@ def get_kingdom(grid_x, grid_y, players, board_tiles, board_monuments, ignore_pi
 
             if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height and (nx, ny) not in visited:
                 tile = get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece)
-                if tile and get_tile_color(tile) == kingdom_color:
+                if tile:
                     visited.add((nx, ny))
                     queue.append((nx, ny))
     return kingdom
@@ -191,17 +192,11 @@ def get_kingdom_leaders(kingdom, players, board_tiles, board_monuments, ignore_p
     leaders = []
     if not kingdom:
         return leaders
-    adjacent_squares = set()
-    for kx, ky in kingdom:
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            ax, ay = kx + dx, ky + dy
-            if (0 <= ax < config.grid_width and 0 <= ay < config.grid_height) and (ax, ay) not in kingdom:
-                adjacent_squares.add((ax, ay))
     
-    for ax, ay in adjacent_squares:
-        adj_piece = get_tile_at(ax, ay, players, board_tiles, board_monuments, ignore_piece=ignore_piece)
-        if adj_piece and isinstance(adj_piece, Tile) and "leader" in adj_piece.tile_type:
-            leaders.append(adj_piece)
+    for kx, ky in kingdom:
+        piece = get_tile_at(kx, ky, players, board_tiles, board_monuments, ignore_piece=ignore_piece)
+        if piece and isinstance(piece, Tile) and "leader" in piece.tile_type:
+            leaders.append(piece)
     return leaders
 
 def update_score(placed_tile, players, board_tiles, board_monuments):
@@ -422,6 +417,7 @@ def remove_tile_at(grid_x, grid_y, players, board_tiles):
             p.hand.remove(tile_to_remove)
             return
 def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
+    print(f"\n--- Inside check_for_conflict for {piece.tile_type} at {pos} ---")
     grid_x = (pos[0] - config.board_left_x) // config.tile_size
     grid_y = (pos[1] - config.board_top_y) // config.tile_size
 
@@ -430,13 +426,20 @@ def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
         nx, ny = grid_x + dx, grid_y + dy
         if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
             if get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece) is not None:
+                print(f"  -> Found neighbor at ({nx}, {ny})")
                 is_new_kingdom = True
                 for k in adjacent_kingdoms:
                     if (nx, ny) in k:
+                        print(f"    -> Neighbor is part of an already found kingdom.")
                         is_new_kingdom = False
                         break
                 if is_new_kingdom:
-                    adjacent_kingdoms.append(get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece))
+                    print(f"    -> Finding new kingdom starting from ({nx}, {ny})")
+                    new_kingdom = get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece)
+                    adjacent_kingdoms.append(new_kingdom)
+                    print(f"    -> Found kingdom with {len(new_kingdom)} pieces.")
+
+    print(f"  -> Found {len(adjacent_kingdoms)} adjacent kingdoms.")
 
     # A revolt occurs when a leader is placed in a kingdom that already has a leader of the same color.
     if isinstance(piece, Tile) and "leader" in piece.tile_type:
