@@ -361,7 +361,7 @@ def main():
                             tile_selected = False
                             for player in players:
                                 for tile in player.hand:
-                                    if tile.rect.collidepoint(mouse_pos) and tile_color_map.get(tile.tile_type) == conflict_color:
+                                    if tile.rect.collidepoint(mouse_pos) and config.tile_color_map.get(tile.tile_type) == conflict_color:
                                         if tile in tiles_for_conflict:
                                             tiles_for_conflict.remove(tile)
                                             committed_tiles[player.name] -= 1

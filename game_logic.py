@@ -417,7 +417,6 @@ def remove_tile_at(grid_x, grid_y, players, board_tiles):
             p.hand.remove(tile_to_remove)
             return
 def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
-    print(f"\n--- Inside check_for_conflict for {piece.tile_type} at {pos} ---")
     grid_x = (pos[0] - config.board_left_x) // config.tile_size
     grid_y = (pos[1] - config.board_top_y) // config.tile_size
 
@@ -426,20 +425,13 @@ def check_for_conflict(piece, pos, players, board_tiles, board_monuments):
         nx, ny = grid_x + dx, grid_y + dy
         if 0 <= nx < config.grid_width and 0 <= ny < config.grid_height:
             if get_tile_at(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece) is not None:
-                print(f"  -> Found neighbor at ({nx}, {ny})")
                 is_new_kingdom = True
                 for k in adjacent_kingdoms:
                     if (nx, ny) in k:
-                        print(f"    -> Neighbor is part of an already found kingdom.")
                         is_new_kingdom = False
                         break
                 if is_new_kingdom:
-                    print(f"    -> Finding new kingdom starting from ({nx}, {ny})")
-                    new_kingdom = get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece)
-                    adjacent_kingdoms.append(new_kingdom)
-                    print(f"    -> Found kingdom with {len(new_kingdom)} pieces.")
-
-    print(f"  -> Found {len(adjacent_kingdoms)} adjacent kingdoms.")
+                    adjacent_kingdoms.append(get_kingdom(nx, ny, players, board_tiles, board_monuments, ignore_piece=piece))
 
     # A revolt occurs when a leader is placed in a kingdom that already has a leader of the same color.
     if isinstance(piece, Tile) and "leader" in piece.tile_type:
