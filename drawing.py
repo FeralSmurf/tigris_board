@@ -105,7 +105,7 @@ def draw_scoreboard(screen, players, current_player_index):
     for i, player in enumerate(players):
         text_color = config.red if i == current_player_index else config.black
         
-        score_text = f"{player.name}'s Score: "
+        score_text = f"{player.name.replace('Player ', 'P')}:  "
         text = config.score_font.render(score_text, True, text_color)
         
         # Center the whole score line
@@ -120,7 +120,12 @@ def draw_scoreboard(screen, players, current_player_index):
             score_val_text = config.score_font.render(f"{score}", True, text_color)
             screen.blit(score_val_text, (score_x + 25, score_y_pos))
             score_x += 70
-
+        
+        # Draw treasures (yellow cubes)
+        pygame.draw.rect(screen, config.yellow, (score_x, score_y_pos, 20, 20))
+        treasure_val_text = config.score_font.render(f"{player.treasures}", True, text_color)
+        screen.blit(treasure_val_text, (score_x + 25, score_y_pos))
+        score_x += 70
 def draw_warning_message(screen, message):
     text = config.warning_font.render(message, True, config.red)
     text_rect = text.get_rect(center=(config.window_width // 2, config.window_height // 2))

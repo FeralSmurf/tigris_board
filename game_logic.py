@@ -28,23 +28,8 @@ def snap_to_grid(pos):
                 config.board_top_y + y * config.tile_size)
     return pos
 
-def save_previous_positions(players, previous_leader_positions, previous_hand_positions):
-    previous_leader_positions.clear()
-    previous_hand_positions.clear()
-    for p in players:
-        previous_leader_positions[p.name] = {color: leader.rect.copy() for color, leader in p.leaders.items()}
-        previous_hand_positions[p.name] = [tile.rect.copy() for tile in p.hand]
 
-def undo_last_move(players, previous_leader_positions, previous_hand_positions):
-    if previous_leader_positions and previous_hand_positions:
-        for p in players:
-            if p.name in previous_leader_positions:
-                for color, rect in previous_leader_positions[p.name].items():
-                    p.leaders[color].rect = rect
-            if p.name in previous_hand_positions:
-                for i, rect in enumerate(previous_hand_positions[p.name]):
-                    if i < len(p.hand):
-                        p.hand[i].rect = rect
+
 
 def get_tile_at(grid_x, grid_y, players, board_tiles, board_monuments, ignore_piece=None):
     # Check board_monuments

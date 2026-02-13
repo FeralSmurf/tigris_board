@@ -15,8 +15,6 @@ class GameState(Enum):
 from game_logic import (
     create_tile_bag,
     snap_to_grid,
-    save_previous_positions,
-    undo_last_move,
     is_valid_move,
     update_score,
     end_turn,
@@ -36,12 +34,13 @@ from drawing import (
     draw_monument_choices,
 )
 from ui import (
-    draw_undo_button,
     draw_end_turn_button,
     draw_replace_button,
     handle_monument_choice,
     draw_commit_button,
 )
+
+
 
 def calculate_winner(players):
     for player in players:
@@ -117,8 +116,7 @@ def main():
     warning_message = ""
     warning_message_timer = 0
 
-    previous_leader_positions = {}
-    previous_hand_positions = {}
+
 
     dragging_tile = None
     dragging_leader = None
@@ -449,7 +447,12 @@ def main():
                     if actions_taken < 2:
                         undo_button_rect = pygame.Rect(undo_button_x, undo_button_y, undo_button_width, undo_button_height)
                         if undo_button_rect.collidepoint(mouse_pos):
-                            undo_last_move(players, previous_leader_positions, previous_hand_positions)
+                            if undo_last_move(players, leader_position_history, hand_position_history):
+                                warning_message = "Undo successful (2 moves back)!"
+                                warning_message_timer = 120
+                            else:
+                                warning_message = "Cannot undo further."
+                                warning_message_timer = 120
                             continue
 
                         current_player = players[current_player_index]
@@ -457,7 +460,7 @@ def main():
                         # Prioritize dragging tiles from hand
                         for tile in current_player.hand:
                             if tile.rect.collidepoint(mouse_pos):
-                                save_previous_positions(players, previous_leader_positions, previous_hand_positions)
+                                save_previous_positions(players, leader_position_history, hand_position_history)
                                 dragging_tile = tile
                                 original_drag_pos = tile.rect.copy()
                                 break
@@ -466,7 +469,7 @@ def main():
                         if not dragging_tile:
                             for color, leader in current_player.leaders.items():
                                 if leader.rect.collidepoint(mouse_pos):
-                                    save_previous_positions(players, previous_leader_positions, previous_hand_positions)
+                                    save_previous_positions(players, leader_position_history, hand_position_history)
                                     dragging_leader = leader
                                     original_drag_pos = leader.rect.copy()
                                     break

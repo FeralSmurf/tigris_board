@@ -1,15 +1,7 @@
 import pygame
 import config
 
-def draw_undo_button(screen, mouse_pos):
-    undo_button_rect = pygame.Rect(config.undo_button_x, config.undo_button_y, config.undo_button_width, config.undo_button_height)
-    button_color = config.undo_button_hover_color if undo_button_rect.collidepoint(mouse_pos) else config.undo_button_color
-    pygame.draw.rect(screen, button_color, undo_button_rect)
 
-    undo_text = config.button_font.render("Undo", True, config.black)
-    text_rect = undo_text.get_rect(center=undo_button_rect.center)
-    screen.blit(undo_text, text_rect)
-    return undo_button_rect
 
 def draw_end_turn_button(screen, mouse_pos):
     end_turn_button_rect = pygame.Rect(config.end_turn_button_x, config.end_turn_button_y, config.end_turn_button_width, config.end_turn_button_height)
