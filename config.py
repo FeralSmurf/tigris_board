@@ -26,8 +26,7 @@ black = (0, 0, 0)
 river = (138, 202, 238)
 red = (255, 0, 0)
 yellow = (255, 255, 0)
-undo_button_color = (200, 200, 200)
-undo_button_hover_color = (180, 180, 180)
+
 dark_grey = (105, 105, 105)
 blue = (0, 0, 255)
 green = (0, 255, 0)
@@ -64,10 +63,7 @@ player2_discard_x_pos = player_space_x2 + player_space_width + gap_between_disca
 player2_discard_area = pygame.Rect(player2_discard_x_pos, window_height - player_space_height - 20, discard_area_width, player_space_height)
 
 # UI Button settings
-undo_button_width = 100
-undo_button_height = 50
-undo_button_x = window_width - undo_button_width - 20
-undo_button_y = 20
+
 
 end_turn_button_width = 120
 end_turn_button_height = 50

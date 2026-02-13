@@ -444,23 +444,14 @@ def main():
                             warning_message_timer = 120
                         continue
 
-                    if actions_taken < 2:
-                        undo_button_rect = pygame.Rect(undo_button_x, undo_button_y, undo_button_width, undo_button_height)
-                        if undo_button_rect.collidepoint(mouse_pos):
-                            if undo_last_move(players, leader_position_history, hand_position_history):
-                                warning_message = "Undo successful (2 moves back)!"
-                                warning_message_timer = 120
-                            else:
-                                warning_message = "Cannot undo further."
-                                warning_message_timer = 120
-                            continue
+
 
                         current_player = players[current_player_index]
 
                         # Prioritize dragging tiles from hand
                         for tile in current_player.hand:
                             if tile.rect.collidepoint(mouse_pos):
-                                save_previous_positions(players, leader_position_history, hand_position_history)
+
                                 dragging_tile = tile
                                 original_drag_pos = tile.rect.copy()
                                 break
@@ -469,7 +460,7 @@ def main():
                         if not dragging_tile:
                             for color, leader in current_player.leaders.items():
                                 if leader.rect.collidepoint(mouse_pos):
-                                    save_previous_positions(players, leader_position_history, hand_position_history)
+    
                                     dragging_leader = leader
                                     original_drag_pos = leader.rect.copy()
                                     break
@@ -583,7 +574,7 @@ def main():
         draw_board(screen)
         draw_player_areas(screen)
         
-        draw_undo_button(screen, mouse_pos)
+
         draw_end_turn_button(screen, mouse_pos)
         draw_replace_button(screen, mouse_pos)
         
